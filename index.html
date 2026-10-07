@@ -1,0 +1,2241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>牙娅的小家</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body, #app { height: 100%; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: #e5e5ea; color: #1c1c1e; overflow: hidden; }
+#app { display: flex; justify-content: center; }
+.phone { width: 100%; max-width: 420px; height: 100vh; background: #fff; display: flex; flex-direction: column; overflow: hidden; }
+.loading, .err { height: 100vh; display: flex; align-items: center; justify-content: center; padding: 30px; text-align: center; color: #666; }
+.err { color: #b00020; font-weight: 600; }
+.icon { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.icon-sm { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.icon-lg { width: 28px; height: 28px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.btn { border: none; background: #1c1c1e; color: #fff; border-radius: 14px; padding: 12px 16px; font-size: 15px; font-weight: 600; cursor: pointer; }
+.btn:disabled { opacity: .4; }
+.btn.ghost { background: #f2f2f7; color: #1c1c1e; }
+.btn.danger { background: #ff3b30; }
+.btn.sm { padding: 8px 12px; font-size: 13px; border-radius: 11px; }
+.input, textarea, select { width: 100%; border: 1px solid #e5e5ea; background: #f9f9fb; border-radius: 14px; padding: 12px 14px; font-size: 15px; outline: none; color: #1c1c1e; font-family: inherit; }
+textarea { resize: none; min-height: 48px; max-height: 160px; line-height: 1.45; }
+textarea.code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+.muted { color: #8e8e93; } .tiny { font-size: 12px; }
+.row { display: flex; gap: 10px; align-items: center; }
+.col { display: flex; flex-direction: column; gap: 10px; }
+.grow { flex: 1; }
+.avatar { width: 44px; height: 44px; border-radius: 50%; background: #f2f2f7; object-fit: cover; flex-shrink: 0; }
+.avatar.sm { width: 34px; height: 34px; }
+.avatar.lg { width: 72px; height: 72px; }
+.avatar.ph { display: flex; align-items: center; justify-content: center; color: #8e8e93; font-weight: 700; }
+.auth { flex: 1; overflow-y: auto; padding: 28px 22px; display: flex; flex-direction: column; gap: 18px; }
+.auth-title { font-size: 26px; font-weight: 800; }
+.auth-sub { color: #8e8e93; font-size: 14px; }
+.auth-switch { display: flex; background: #f2f2f7; border-radius: 14px; padding: 4px; }
+.auth-switch button { flex: 1; border: none; background: transparent; padding: 10px; border-radius: 11px; font-size: 14px; font-weight: 600; color: #8e8e93; cursor: pointer; }
+.auth-switch button.active { background: #fff; color: #1c1c1e; }
+.fg { display: flex; flex-direction: column; gap: 6px; }
+.fg label { font-size: 13px; font-weight: 600; color: #6c6c70; }
+.upload { display: flex; align-items: center; gap: 14px; }
+.upload input[type=file] { display: none; }
+.upload-box { width: 72px; height: 72px; border-radius: 50%; background: #f2f2f7; display: flex; align-items: center; justify-content: center; color: #8e8e93; border: 1px dashed #c7c7cc; cursor: pointer; overflow: hidden; }
+.upload-box img { width: 100%; height: 100%; object-fit: cover; }
+.upload-box.rect { width: 88px; height: 64px; border-radius: 12px; }
+.desktop { flex: 1; position: relative; display: flex; flex-direction: column; background: linear-gradient(160deg,#f5f5f7,#dcdce2); background-size: cover; background-position: center; overflow: hidden; }
+.status-bar { display: flex; justify-content: space-between; padding: 12px 20px 6px; font-size: 13px; font-weight: 650; z-index: 2; }
+.status-bar .right { display: flex; gap: 5px; align-items: center; }
+.status-bar svg { width: 15px; height: 15px; stroke: #1c1c1e; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.status-bar.on-bg .time { color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.4); }
+.status-bar.on-bg svg { stroke: #fff; }
+.battery { width: 22px; height: 11px; border: 1.4px solid #1c1c1e; border-radius: 3px; position: relative; padding: 1.5px; }
+.battery::after { content: ""; position: absolute; right: -3px; top: 50%; transform: translateY(-50%); width: 2px; height: 4px; background: #1c1c1e; border-radius: 0 1px 1px 0; }
+.battery-fill { width: 87%; height: 100%; background: #1c1c1e; border-radius: 1px; }
+.status-bar.on-bg .battery { border-color: #fff; }
+.status-bar.on-bg .battery::after { background: #fff; }
+.status-bar.on-bg .battery-fill { background: #fff; }
+.dgrid { display: grid; grid-template-columns: repeat(4,1fr); gap: 22px 8px; padding: 26px 20px; flex: 1; align-content: flex-start; overflow-y: auto; z-index: 2; }
+.app-icon { display: flex; flex-direction: column; align-items: center; gap: 7px; cursor: pointer; user-select: none; }
+.app-icon .iw { width: 58px; height: 58px; border-radius: 16px; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.06); display: flex; align-items: center; justify-content: center; }
+.app-icon .iw svg { width: 28px; height: 28px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.app-icon .name { font-size: 11.5px; color: #3a3a3c; }
+.desktop.on-bg .app-icon .name { color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.4); }
+.desktop.on-bg .app-icon .iw { background: rgba(255,255,255,.85); }
+.dock { margin: 12px 16px 18px; padding: 12px 14px; background: rgba(255,255,255,.55); border-radius: 24px; display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; border: 1px solid rgba(255,255,255,.7); z-index: 2; }
+.dock .app-icon .iw { background: transparent; box-shadow: none; }
+.dock .app-icon .name { display: none; }
+.shell { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #fff; }
+.aheader { height: 56px; padding: 0 8px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #f0f0f2; flex-shrink: 0; }
+.aheader .title { flex: 1; text-align: center; font-size: 16px; font-weight: 700; }
+.aheader .ib { width: 38px; height: 38px; border-radius: 50%; border: none; background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.abody { flex: 1; overflow-y: auto; padding: 14px 16px; }
+.search-row { display: flex; gap: 8px; margin-bottom: 14px; }
+.item { display: flex; gap: 12px; align-items: center; padding: 12px 10px; border-radius: 16px; cursor: pointer; }
+.item:active { background: #f2f2f7; }
+.item-meta { flex: 1; min-width: 0; }
+.item-name { font-size: 15px; font-weight: 650; margin-bottom: 3px; }
+.item-sub { font-size: 13px; color: #8e8e93; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st { font-size: 13px; font-weight: 700; color: #8e8e93; margin: 16px 4px 8px; }
+.empty { padding: 36px 10px; text-align: center; color: #8e8e93; font-size: 14px; line-height: 1.6; }
+.chat { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #f7f7f9; background-size: cover; background-position: center; }
+.cheader { height: 56px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: rgba(255,255,255,.94); border-bottom: 1px solid #ececf0; flex-shrink: 0; }
+.cheader .title { flex: 1; text-align: center; font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cheader .ib { width: 38px; height: 38px; border-radius: 50%; border: none; background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.msg-list { flex: 1; overflow-y: auto; padding: 14px 12px; display: flex; flex-direction: column; gap: 12px; }
+.msg-row { display: flex; gap: 8px; align-items: flex-start; }
+.msg-row.user { flex-direction: row-reverse; }
+.msg-av { display: flex; flex-direction: column; align-items: center; gap: 3px; flex-shrink: 0; }
+.msg-time { font-size: 10px; color: #a1a1a6; }
+.bubble { max-width: 72%; padding: 10px 13px; border-radius: 18px; font-size: 15px; line-height: 1.45; word-break: break-word; white-space: pre-wrap; background: #fff; border: 1px solid #ececf0; }
+.msg-row.user .bubble { background: #1c1c1e; color: #fff; border-color: #1c1c1e; }
+.narr { align-self: center; text-align: center; font-size: 12px; color: #a1a1a6; padding: 2px 18px; line-height: 1.5; max-width: 80%; }
+.narr.err { color: #b00020; }
+.think { align-self: flex-start; max-width: 82%; background: #f2f2f7; border: 1px solid #e5e5ea; border-radius: 14px; padding: 8px 12px; font-size: 12px; color: #6c6c70; }
+.think summary { cursor: pointer; font-weight: 700; color: #8e8e93; }
+.think div { margin-top: 6px; white-space: pre-wrap; line-height: 1.5; }
+.cinput { flex-shrink: 0; background: rgba(255,255,255,.96); border-top: 1px solid #ececf0; padding: 8px 10px; display: flex; gap: 8px; align-items: flex-end; position: relative; }
+.cinput .ib { width: 40px; height: 40px; border-radius: 50%; border: none; background: #f2f2f7; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+.cinput textarea { flex: 1; min-height: 40px; max-height: 110px; padding: 10px 12px; border-radius: 18px; }
+.send { width: 40px; height: 40px; border-radius: 50%; border: none; background: #1c1c1e; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+.send:disabled { opacity: .35; }
+.drawer { position: absolute; left: 10px; bottom: 62px; background: #fff; border-radius: 18px; padding: 10px; display: flex; flex-direction: column; gap: 8px; min-width: 150px; z-index: 20; box-shadow: 0 8px 30px rgba(0,0,0,.12); }
+.drawer button { border: none; background: #f2f2f7; border-radius: 12px; padding: 10px 12px; text-align: left; font-size: 14px; font-weight: 600; cursor: pointer; }
+.drawer button.active { background: #1c1c1e; color: #fff; }
+.tabbar { flex-shrink: 0; height: 64px; border-top: 1px solid #f0f0f2; display: flex; align-items: center; justify-content: space-around; }
+.tabbar button { border: none; background: transparent; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; color: #8e8e93; cursor: pointer; font-weight: 600; }
+.tabbar button.active { color: #1c1c1e; }
+.cmenu { position: fixed; z-index: 100; background: #fff; border-radius: 14px; box-shadow: 0 10px 34px rgba(0,0,0,.16); padding: 6px; display: flex; flex-direction: column; min-width: 120px; }
+.cmenu button { border: none; background: transparent; text-align: left; padding: 10px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.cmenu button.danger { color: #ff3b30; }
+.mask { position: fixed; inset: 0; background: rgba(0,0,0,.28); z-index: 200; display: flex; align-items: flex-end; justify-content: center; padding: 16px; }
+.switch { position: relative; width: 46px; height: 27px; flex-shrink: 0; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch .slider { position: absolute; cursor: pointer; inset: 0; background: #e5e5ea; border-radius: 999px; transition: .2s; }
+.switch .slider::before { content: ""; position: absolute; height: 23px; width: 23px; left: 2px; top: 2px; background: #fff; border-radius: 50%; transition: .2s; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+.switch input:checked + .slider { background: #1c1c1e; }
+.switch input:checked + .slider::before { transform: translateX(19px); }
+.modal { width: 100%; max-width: 400px; background: #fff; border-radius: 22px; padding: 18px; display: flex; flex-direction: column; gap: 12px; max-height: 86vh; overflow-y: auto; }
+.mtitle { font-size: 18px; font-weight: 800; }
+.mrow { display: flex; gap: 10px; justify-content: flex-end; }
+.tag { display: inline-flex; padding: 3px 8px; border-radius: 999px; background: #f2f2f7; color: #6c6c70; font-size: 11px; font-weight: 600; }
+.tag.active { background: #1c1c1e; color: #fff; }
+.card { border: 1px solid #ececf0; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.card.active { border-color: #1c1c1e; box-shadow: 0 0 0 1px #1c1c1e inset; }
+.preview { background: #f7f7f9; border-radius: 12px; padding: 10px; font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #3a3a3c; max-height: 400px; overflow-y: auto; white-space: pre-wrap; line-height: 1.5; border: 1px solid #ececf0; }
+.sitem { display: flex; align-items: center; justify-content: space-between; padding: 14px 12px; border-radius: 14px; background: #f9f9fb; cursor: pointer; }
+.sitem .label { font-size: 15px; font-weight: 600; }
+.sitem .value { font-size: 13px; color: #8e8e93; }
+.mlist { max-height: 220px; overflow-y: auto; border: 1px solid #ececf0; border-radius: 12px; padding: 4px; margin-top: 6px; background: #f9f9fb; }
+.mitem { display: flex; justify-content: space-between; padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 13px; font-family: ui-monospace, Menlo, monospace; word-break: break-all; gap: 8px; }
+.mitem.active { background: #1c1c1e; color: #fff; }
+.mitem.active .icon-sm { color: #fff; }
+.wb-card { padding: 14px; border-radius: 16px; background: #f9f9fb; border: 1px solid #ececf0; cursor: pointer; display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.wb-card .nm { font-size: 16px; font-weight: 700; }
+.wb-card .desc { font-size: 13px; color: #8e8e93; line-height: 1.4; }
+.wb-card .meta { font-size: 11px; color: #a1a1a6; }
+.wb-en { padding: 14px; border-radius: 16px; background: #fff; border: 1px solid #ececf0; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.wb-en.off { opacity: .55; }
+.wb-en .ct { font-size: 13px; line-height: 1.5; color: #3a3a3c; white-space: pre-wrap; word-break: break-word; }
+.wb-en .mr { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.chip { display: inline-flex; padding: 3px 8px; border-radius: 999px; background: #f2f2f7; color: #6c6c70; font-size: 11px; font-weight: 600; }
+.chip.dark { background: #1c1c1e; color: #fff; }
+.chip.outline { background: transparent; border: 1px solid #d1d1d6; }
+.music { flex: 1; display: flex; flex-direction: column; background: #f2f2f7; overflow: hidden; }
+.mh { padding: 14px 18px 10px; display: flex; align-items: center; gap: 12px; background: #fff; }
+.mh .title { font-size: 20px; font-weight: 800; }
+.mh .ib { width: 38px; height: 38px; border-radius: 50%; border: none; background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.mbody { flex: 1; overflow-y: auto; padding: 14px 16px 24px; }
+.madd { display: flex; gap: 8px; margin-bottom: 14px; }
+.mitem2 { display: flex; gap: 10px; align-items: center; padding: 12px 10px; border-radius: 14px; background: #fff; border: 1px solid #ececf0; margin-bottom: 8px; }
+.mitem2.active { border-color: #1c1c1e; }
+.mthumb { width: 44px; height: 44px; border-radius: 10px; background: linear-gradient(135deg,#fa709a,#fee140); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; flex-shrink: 0; font-size: 20px; }
+.mthumb.pl { background: linear-gradient(135deg,#4facfe,#00f2fe); }
+.mmeta { flex: 1; min-width: 0; }
+.mtitle2 { font-size: 14px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.msub { font-size: 11px; color: #8e8e93; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mframe { background: #fff; border-radius: 14px; overflow: hidden; margin-bottom: 14px; }
+.mframe iframe { display: block; width: 100%; border: none; }
+.placeholder { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 40px; text-align: center; color: #8e8e93; }
+.placeholder .iw { width: 72px; height: 72px; border-radius: 22px; background: #f2f2f7; display: flex; align-items: center; justify-content: center; }
+.st-card { padding: 14px; border-radius: 16px; background: #f9f9fb; border: 1px solid #ececf0; cursor: pointer; display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.st-card .nm { font-size: 16px; font-weight: 700; }
+.st-card .desc { font-size: 13px; color: #8e8e93; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.st-card .meta { font-size: 11px; color: #a1a1a6; }
+.st-msg { padding: 12px 14px; border-radius: 14px; font-size: 14.5px; line-height: 1.55; word-break: break-word; white-space: pre-wrap; }
+.st-msg.assistant { background: #fff; border: 1px solid #ececf0; align-self: flex-start; max-width: 88%; }
+.st-msg.user { background: #1c1c1e; color: #fff; align-self: flex-end; max-width: 88%; }
+.st-msg.system { background: #fef9e7; border: 1px dashed #f0c674; color: #7a5c00; font-size: 13px; align-self: center; max-width: 92%; padding: 10px 14px; }
+.st-msg-title { font-size: 10.5px; color: #a1a1a6; margin-bottom: 4px; font-weight: 600; }
+.st-msg.user .st-msg-title { color: rgba(255,255,255,.55); }
+</style>
+</head>
+<body>
+<div id="app">
+<div v-if="dbError" class="err">{{ dbError }}</div>
+<div v-else-if="!dbReady" class="loading">初始化中…</div>
+<div v-else class="phone">
+
+<div v-if="screen==='loading'" class="loading">正在准备…</div>
+
+<div v-else-if="screen==='desktop'" class="desktop" :class="{'on-bg': !!desktopBackgroundUrl}" :style="desktopStyle">
+  <div class="status-bar" :class="{'on-bg': !!desktopBackgroundUrl}">
+    <span class="time">{{ clockText }}</span>
+    <div class="right">
+      <svg viewBox="0 0 24 24"><path d="M2 20h.01M6 20v-4M10 20v-8M14 20V8M18 20V4"/></svg>
+      <svg viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14 0"/><path d="M8.5 16.43a6 6 0 0 1 7 0"/><circle cx="12" cy="20" r="1" fill="currentColor"/></svg>
+      <div class="battery"><div class="battery-fill"></div></div>
+    </div>
+  </div>
+  <div class="dgrid">
+    <div v-for="app in desktopApps" :key="app.id" class="app-icon" @click="openApp(app.id)">
+      <div class="iw" v-html="app.icon"></div>
+      <div class="name">{{ app.name }}</div>
+    </div>
+  </div>
+  <div class="dock">
+    <div v-for="app in dockApps" :key="app.id" class="app-icon" @click="openApp(app.id)">
+      <div class="iw" v-html="app.icon"></div>
+      <div class="name">{{ app.name }}</div>
+    </div>
+  </div>
+</div>
+
+<div v-else-if="screen==='app'" class="shell">
+
+<template v-if="currentApp==='chat'">
+  <template v-if="chatScreen==='home'">
+    <div class="aheader">
+      <button class="ib" @click="closeApp"><svg class="icon" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <div class="title">聊天</div>
+      <button class="ib" @click="showChar=true"><svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+    </div>
+    <div class="abody">
+      <div v-if="homeTab==='friends'">
+        <div class="search-row">
+          <input class="input" v-model="addFriendQuery" placeholder="输入通讯号添加好友" />
+          <button class="btn sm" @click="addFriend">添加</button>
+        </div>
+        <div class="st">好友</div>
+        <div v-if="friends.length===0" class="empty">还没有好友。</div>
+        <div v-for="f in friends" :key="f.id" class="item" @click="openFriend(f)">
+          <img v-if="f.avatarUrl" class="avatar" :src="f.avatarUrl" />
+          <div v-else class="avatar ph">{{ (f.displayName||'?')[0] }}</div>
+          <div class="item-meta">
+            <div class="item-name">{{ f.displayName }}
+              <span v-if="typingMap[f.id]" class="tiny muted" style="font-weight:400;"> · 输入中…</span>
+            </div>
+            <div class="item-sub">{{ f.lastMsg || '暂无消息' }}</div>
+          </div>
+        </div>
+      </div>
+      <div v-else-if="homeTab==='me'">
+        <div class="st">我的资料</div>
+        <div class="row" style="padding:10px 4px 18px;">
+          <label class="upload-box">
+            <img v-if="meForm.avatarUrl" :src="meForm.avatarUrl" />
+            <svg v-else class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+            <input type="file" accept="image/*" @change="onMeFile" />
+          </label>
+          <div class="col grow">
+            <div style="font-size:18px;font-weight:800;">{{ meForm.nickname || '我' }}</div>
+            <div class="tiny muted">{{ autoSaveTip || '修改后自动保存' }}</div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="fg"><label>昵称</label><input class="input" v-model="meForm.nickname" @input="saveMe" placeholder="你的昵称" /></div>
+          <div class="fg"><label>性别</label><input class="input" v-model="meForm.gender" @input="saveMe" placeholder="男 / 女 / 其他" /></div>
+          <div class="fg"><label>人设</label><textarea v-model="meForm.persona" @input="saveMe" placeholder="描述你自己（会作为「用户人设」注入对话与世界书 prompt）"></textarea></div>
+        </div>
+        <div class="col" style="margin-top:6px;">
+          <button class="btn ghost" @click="showChar=true">创建角色</button>
+        </div>
+        <div class="st">已创建角色</div>
+        <div v-if="characters.length===0" class="empty">暂无角色</div>
+        <div v-for="c in characters" :key="c.id" class="item">
+          <img v-if="c.avatarUrl" class="avatar sm" :src="c.avatarUrl" />
+          <div v-else class="avatar sm ph">{{ (c.name||'?')[0] }}</div>
+          <div class="item-meta">
+            <div class="item-name">{{ c.name }}</div>
+            <div class="tiny muted">通讯号：{{ c.contactId }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="tabbar">
+      <button :class="{active:homeTab==='friends'}" @click="homeTab='friends'">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
+        <span>好友</span>
+      </button>
+      <button :class="{active:homeTab==='me'}" @click="homeTab='me'">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+        <span>我的</span>
+      </button>
+    </div>
+  </template>
+
+  <template v-else-if="chatScreen==='chat'">
+    <div class="chat" :id="'chat-'+friend.id" :style="chatBgStyle">
+      <div class="cheader">
+        <button class="ib" @click="chatScreen='home'"><svg class="icon" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <div class="title">{{ typing ? '对方正在输入...' : (friend.remark || friend.char?.name || '聊天') }}</div>
+        <button class="ib" @click="openFriendSettings">
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="19" r="1.5" fill="currentColor"/></svg>
+        </button>
+      </div>
+      <div class="msg-list" ref="msgList">
+        <template v-for="m in messages" :key="m.id">
+          <div v-if="m.type==='think'" style="display:none;"></div>
+          <div v-else-if="m.type==='narratage'" class="narr" :class="{err:m.isError}">{{ clean(m.content) }}</div>
+          <div v-else class="msg-row" :class="{user:m.role==='user'}"
+               @contextmenu.prevent
+               @mousedown="lpStart($event,m)" @mouseup="lpCancel" @mouseleave="lpCancel"
+               @touchstart="lpStart($event,m)" @touchend="lpCancel" @touchcancel="lpCancel">
+            <div class="msg-av">
+              <img v-if="m.avatarUrl" class="avatar sm" :src="m.avatarUrl" />
+              <div v-else class="avatar sm ph">{{ (m.role==='user' ? (account.nickname||'我') : (friend.remark||friend.char?.name||'?' ))[0] }}</div>
+              <div class="msg-time">{{ fmtTime(m.timestamp) }}</div>
+            </div>
+            <div class="bubble">{{ m.content }}</div>
+          </div>
+        </template>
+      </div>
+      <div class="cinput">
+        <button class="ib" @click="showDrawer=!showDrawer"><svg class="icon" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <textarea v-model="msgInput" placeholder="输入消息…" @keydown.enter.exact.prevent="sendMsg"></textarea>
+        <button class="send" :disabled="!msgInput.trim()" @click="sendMsg"><svg class="icon" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg></button>
+        <div v-if="showDrawer" class="drawer">
+          <button :class="{active:narrMode}" @click="narrMode=!narrMode; showDrawer=false">旁白输入</button>
+        </div>
+      </div>
+    </div>
+  </template>
+</template>
+
+<template v-else-if="currentApp==='story'">
+  <template v-if="storyScreen==='list'">
+    <div class="aheader">
+      <button class="ib" @click="closeApp"><svg class="icon" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <div class="title">剧情</div>
+      <button class="ib" @click="openNewStory"><svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+    </div>
+    <div class="abody">
+      <div v-if="stories.length===0" class="empty">还没有剧情。点右上角 + 创建。</div>
+      <div v-for="s in stories" :key="s.id" class="st-card" @click="openStory(s)">
+        <div class="row" style="justify-content:space-between;">
+          <div class="nm">{{ s.title }}</div>
+          <svg class="icon-sm" viewBox="0 0 24 24" style="color:#8e8e93;"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+        <div class="desc">{{ s.description || (s.setting || '').slice(0, 60) }}</div>
+        <div class="meta">{{ (s.worldbookIds && s.worldbookIds.length) ? '📖 引用 ' + s.worldbookIds.length + ' 本世界书 · ' : '' }}{{ fmtDate(s.updatedAt) }}</div>
+      </div>
+    </div>
+  </template>
+  <template v-else-if="storyScreen==='chat'">
+    <div class="chat">
+      <div class="cheader">
+        <button class="ib" @click="storyScreen='list'"><svg class="icon" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <div class="title">{{ curStory?.title }}</div>
+        <button class="ib" @click="editStory(curStory)" title="编辑设定"><svg class="icon" viewBox="0 0 24 24"><path d="M4 20h4l10-10-4-4L4 16v4z"/><path d="M14 6l4 4"/></svg></button>
+        <button class="ib" @click="delStory(curStory)"><svg class="icon" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14"/></svg></button>
+      </div>
+      <div class="msg-list" ref="storyList">
+        <div class="st-msg system">
+          <div style="font-weight:700;margin-bottom:4px;">场景设定</div>
+          <div>{{ curStory.setting }}</div>
+        </div>
+        <div v-if="curStory.opening" class="st-msg assistant">
+          <div class="st-msg-title">开场</div>
+          {{ curStory.opening }}
+        </div>
+        <template v-for="m in storyMsgs" :key="m.id">
+          <div :class="['st-msg', m.role]">
+            <div class="st-msg-title">{{ m.role === 'user' ? '你' : '叙事' }}</div>
+            {{ m.content }}
+          </div>
+        </template>
+        <div v-if="storyTyping" class="st-msg assistant" style="opacity:.6;">正在生成…</div>
+      </div>
+      <div class="cinput">
+        <textarea v-model="storyInput" placeholder="输入行动或对白…" @keydown.enter.exact.prevent="sendStory"></textarea>
+        <button class="send" :disabled="!storyInput.trim() || storyTyping" @click="sendStory"><svg class="icon" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg></button>
+      </div>
+    </div>
+  </template>
+</template>
+
+<template v-else-if="currentApp==='worldbook'">
+  <div class="aheader">
+    <button class="ib" @click="wbBack"><svg class="icon" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <div class="title">{{ wbScreen==='list' ? '世界书' : (curWb?.name || '世界书') }}</div>
+    <button v-if="wbScreen==='list'" class="ib" @click="newWb"><svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button v-else class="ib" @click="newWbEntry" title="新增条目"><svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+  </div>
+  <div class="abody">
+    <template v-if="wbScreen==='list'">
+      <div v-if="wbs.length===0" class="empty">还没有世界书。</div>
+      <div v-for="wb in wbs" :key="wb.id" class="wb-card" @click="openWb(wb)">
+        <div class="row" style="justify-content:space-between;">
+          <div class="nm">{{ wb.name }}</div>
+          <svg class="icon-sm" viewBox="0 0 24 24" style="color:#8e8e93;"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+        <div v-if="wb.description" class="desc">{{ wb.description }}</div>
+        <div class="meta">{{ (wb.entries || []).length }} 条目</div>
+      </div>
+    </template>
+    <template v-else>
+      <div class="row" style="margin-bottom:12px;">
+        <input class="input grow" v-model="curWb.name" placeholder="世界书名" />
+        <button class="btn sm" @click="saveWb">保存</button>
+        <button class="btn danger sm" @click="delWb">删除</button>
+      </div>
+      <textarea class="input" v-model="curWb.description" placeholder="简介" style="margin-bottom:4px;"></textarea>
+      <div v-if="wbSaveTip" class="tiny" :style="{color: wbSaveTipOk ? '#2b8a3e' : '#b00020', marginBottom:'12px'}">{{ wbSaveTip }}</div>
+      <div v-else class="tiny muted" style="margin-bottom:12px;">编辑后点右上角「保存」</div>
+      <div v-if="!curWb.entries || curWb.entries.length===0" class="empty">还没有条目。点右上角 + 新增。</div>
+      <div v-for="(en, idx) in curWb.entries" :key="en.id" class="wb-en" :class="{off: !en.enabled}">
+        <div class="row" style="justify-content:space-between;">
+          <div class="mr">
+            <span class="chip" :class="{dark: en.position==='before'}">前置</span>
+            <span class="chip" :class="{dark: en.position==='middle'}">中置</span>
+            <span class="chip" :class="{dark: en.position==='after'}">后置</span>
+            <span class="chip outline">{{ en.trigger === 'always' ? '始终' : en.trigger === 'keyword' ? '关键词' : '概率 ' + en.probability }}</span>
+          </div>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <input type="checkbox" v-model="en.enabled" @change="markDirty" />
+            <span class="tiny">启用</span>
+          </label>
+        </div>
+        <textarea class="input" v-model="en.content" style="min-height:60px; font-size:13px;" @input="markDirty" placeholder="条目内容"></textarea>
+        <div class="row" style="justify-content:flex-end; gap:8px;">
+          <button class="btn ghost sm" @click="editWbEntry(en)">高级</button>
+          <button class="btn danger sm" @click="delWbEntry(en)">删除</button>
+        </div>
+      </div>
+    </template>
+  </div>
+</template>
+
+<template v-else-if="currentApp==='music'">
+  <div class="music">
+    <div class="mh">
+      <button class="ib" @click="closeApp"><svg class="icon" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <div class="title grow">网易云音乐</div>
+    </div>
+    <div class="mbody">
+      <div class="st" style="margin-top:0;">一起听</div>
+      <div class="card" style="gap:10px; margin-bottom:14px;">
+        <div v-if="!listen.active" class="tiny muted">邀请一个角色和你一起听同一首歌 —— Ta 会按概率发来关于这首歌的评论、心情或想起的往事。</div>
+        <div v-else class="row" style="justify-content:space-between;">
+          <div>
+            <div style="font-weight:700;font-size:15px;">🎧 一起听中</div>
+            <div class="tiny muted">{{ listenSongName }} · 和 {{ listenFriendName }} 一起</div>
+          </div>
+          <span class="tag active">进行中</span>
+        </div>
+        <div v-if="listen.active" class="fg">
+          <label>评论触发概率（{{ listen.rate }}%）</label>
+          <input class="input" type="range" min="0" max="100" v-model.number="listen.rate" @change="saveListen" />
+          <div class="tiny muted">每次切歌或播放时，按此概率让对方发来一条「听歌感想」。</div>
+        </div>
+        <div v-if="listen.active" class="fg">
+          <label>当前一起听的歌</label>
+          <select class="input" v-model="listen.musicId" @change="onListenMusicChange">
+            <option value="">— 请选择 —</option>
+            <option v-for="m in musicLinks" :key="m.id" :value="m.id">{{ m.type==='playlist' ? '歌单' : '单曲' }} {{ m.resourceId }}</option>
+          </select>
+        </div>
+        <div v-if="!listen.active" class="fg">
+          <label>和谁一起听</label>
+          <select class="input" v-model="listen.friendId">
+            <option value="">— 选择好友/角色 —</option>
+            <option v-for="f in friends" :key="f.id" :value="f.id">{{ f.remark || (f.char && f.char.name) || '未知' }}</option>
+          </select>
+        </div>
+        <div v-if="!listen.active" class="fg">
+          <label>选一首歌</label>
+          <select class="input" v-model="listen.musicId">
+            <option value="">— 选择歌曲/歌单 —</option>
+            <option v-for="m in musicLinks" :key="m.id" :value="m.id">{{ m.type==='playlist' ? '歌单' : '单曲' }} {{ m.resourceId }}</option>
+          </select>
+        </div>
+        <div class="row">
+          <button v-if="!listen.active" class="btn grow" @click="startListen">开始一起听</button>
+          <template v-else>
+            <button class="btn ghost grow" @click="saySomething">Ta 说点什么</button>
+            <button class="btn danger" @click="stopListen">结束</button>
+          </template>
+        </div>
+        <div v-if="listen.tip" class="tiny" :style="{color: listenTipOk ? '#2b8a3e' : '#b00020'}">{{ listen.tip }}</div>
+      </div>
+      <div class="st" style="margin-top:0;">添加歌曲 / 歌单</div>
+      <div class="madd">
+        <input class="input grow" v-model="musicLink" placeholder="粘贴网易云分享链接" />
+        <button class="btn sm" @click="addMusic">添加</button>
+      </div>
+      <div class="tiny muted" style="margin-bottom:14px;">支持 music.163.com/song?id=xxx 或 playlist?id=xxx</div>
+      <template v-if="curMusicId">
+        <div class="st">正在播放</div>
+        <div class="mframe">
+          <iframe :src="musicEmbed" :height="musicType==='playlist' ? 430 : 86" allow="autoplay"></iframe>
+        </div>
+      </template>
+      <div class="st">我的音乐</div>
+      <div v-if="musicLinks.length===0" class="empty">还没有添加音乐。</div>
+      <div v-for="m in musicLinks" :key="m.id" class="mitem2" :class="{active: m.id===curMusicId}">
+        <div class="mthumb" :class="{pl: m.type==='playlist'}" @click="curMusicId=m.id">{{ m.type === 'playlist' ? '♫' : '♪' }}</div>
+        <div class="mmeta" @click="curMusicId=m.id">
+          <div class="mtitle2">{{ m.type === 'playlist' ? '歌单' : '单曲' }} {{ m.resourceId }}</div>
+          <div class="msub">{{ m.originalUrl }}</div>
+        </div>
+        <button class="btn ghost sm" @click="delMusic(m)">删除</button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<template v-else-if="currentApp==='diary'">
+  <div class="aheader">
+    <button class="ib" @click="diaryScreen==='list' ? closeApp() : (diaryScreen='list')"><svg class="icon" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <div class="title">{{ diaryScreen==='list' ? '日记' : (diaryView.name + ' 的日记') }}</div>
+    <div style="width:38px;"></div>
+  </div>
+  <div class="abody">
+    <template v-if="diaryScreen==='list'">
+      <div class="col" style="gap:12px;">
+        <div class="card" style="gap:10px;">
+          <div class="row" style="justify-content:space-between;">
+            <div>
+              <div style="font-weight:700;font-size:15px;">自动生成日记</div>
+              <div class="tiny muted">对方发来新消息后，按概率自动记一篇</div>
+            </div>
+            <label class="switch"><input type="checkbox" v-model="diaryAuto" @change="saveGlobalBe" /><span class="slider"></span></label>
+          </div>
+          <div class="fg" v-if="diaryAuto">
+            <label>触发概率（{{ diaryAutoRate }}%）</label>
+            <input class="input" type="range" min="0" max="100" v-model.number="diaryAutoRate" @change="saveGlobalBe" />
+          </div>
+        </div>
+        <div class="tiny muted">日记是角色以第一人称记录的心情与想法，由对话内容自动生成，只存本机。</div>
+      </div>
+      <div class="st">各角色日记</div>
+      <div v-if="diaryList.length===0" class="empty">还没有日记。去「聊天」打开一个角色多聊几句，角色就会开始记录。</div>
+      <div v-for="d in diaryList" :key="d.friendId" class="item" @click="openDiaryView(d.friendId)">
+        <img v-if="d.avatarUrl" class="avatar" :src="d.avatarUrl" />
+        <div v-else class="avatar ph">{{ (d.name||'?')[0] }}</div>
+        <div class="item-meta">
+          <div class="item-name">{{ d.name }}</div>
+          <div class="item-sub">{{ d.count }} 篇 · 最近：{{ d.latest || '暂无' }}</div>
+        </div>
+      </div>
+    </template>
+    <template v-else-if="diaryScreen==='view'">
+      <div class="tiny muted" style="margin-bottom:12px;">根据你们的聊天内容，{{ diaryView.name }} 会以第一人称记录心情与想法。</div>
+      <div v-if="diaryView.entries.length===0" class="empty">还没有日记。多聊几句后，{{ diaryView.name }} 会开始记录。</div>
+      <div v-for="(d,i) in diaryView.entries" :key="i" class="card" style="gap:6px;">
+        <div class="tiny muted" style="font-weight:700;">{{ fmtDateStr(d.date) }}</div>
+        <div style="font-size:14px;line-height:1.6;white-space:pre-wrap;">{{ d.content }}</div>
+      </div>
+      <button class="btn" @click="genDiaryForView()" :disabled="diaryView.busy">{{ diaryView.busy ? '记录中…' : '写今日日记' }}</button>
+      <div class="tiny muted">日记只存在本机，不会外传。</div>
+    </template>
+  </div>
+</template>
+
+<template v-else-if="currentApp==='beautify'">
+  <div class="aheader">
+    <button class="ib" @click="beScreen==='main' ? closeApp() : (beScreen='main')"><svg class="icon" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <div class="title">{{ beScreen==='main' ? '美化' : beScreen==='bg' ? '桌面背景' : beScreen==='css' ? '全局 CSS' : '全局 JS' }}</div>
+    <div style="width:38px;"></div>
+  </div>
+  <div class="abody">
+    <template v-if="beScreen==='main'">
+      <div class="tiny muted" style="margin-bottom:12px;">仅作用于桌面与全局，不影响应用内部。</div>
+      <div class="col" style="gap:10px;">
+        <div class="sitem" @click="beScreen='bg'">
+          <div><div class="label">桌面背景</div><div class="tiny muted">{{ desktopBackgroundBlob ? '已设置' : '未设置' }}</div></div>
+          <svg class="icon-sm" viewBox="0 0 24 24" style="color:#8e8e93;"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+        <div class="sitem" @click="beScreen='css'">
+          <div><div class="label">全局 CSS</div><div class="tiny muted">{{ desktopCss ? '已设置' : '未设置' }}</div></div>
+          <svg class="icon-sm" viewBox="0 0 24 24" style="color:#8e8e93;"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+        <div class="sitem" @click="beScreen='js'">
+          <div><div class="label">全局 JS</div><div class="tiny muted">{{ desktopJs ? '已设置' : '未设置' }}</div></div>
+          <svg class="icon-sm" viewBox="0 0 24 24" style="color:#8e8e93;"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+        <div class="sitem" @click="beScreen='notify'">
+          <div>
+            <div class="label">消息提醒</div>
+            <div class="tiny muted">{{ globalNotify ? '开启 · ' + notifyStyleText : '关闭' }}</div>
+          </div>
+          <svg class="icon-sm" viewBox="0 0 24 24" style="color:#8e8e93;"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+        <div class="sitem" @click="beScreen='proactive'">
+          <div>
+            <div class="label">角色主动发消息</div>
+            <div class="tiny muted">{{ globalProactive ? '开启 · 每 ' + globalProactiveMin + ' 分钟' : '关闭' }}</div>
+          </div>
+          <svg class="icon-sm" viewBox="0 0 24 24" style="color:#8e8e93;"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+        <div class="sitem" @click="beScreen='diary'">
+          <div>
+            <div class="label">角色日记</div>
+            <div class="tiny muted">第一人称心情记录</div>
+          </div>
+          <svg class="icon-sm" viewBox="0 0 24 24" style="color:#8e8e93;"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+      </div>
+    </template>
+    <template v-else-if="beScreen==='bg'">
+      <div class="fg">
+        <label>桌面背景图</label>
+        <div class="row">
+          <label class="upload-box rect">
+            <img v-if="desktopBackgroundUrl" :src="desktopBackgroundUrl" />
+            <svg v-else class="icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/></svg>
+            <input type="file" accept="image/*" @change="pickDesktopBg" />
+          </label>
+          <div class="col grow">
+            <button v-if="desktopBackgroundUrl" class="btn ghost sm" @click="clearDesktopBg">清除背景</button>
+          </div>
+        </div>
+      </div>
+    </template>
+    <template v-else-if="beScreen==='css'">
+      <div class="fg">
+        <label>全局 CSS（仅桌面）</label>
+        <textarea class="code" v-model="cssDraft" style="min-height:220px;" placeholder=".app-icon .iw { border-radius: 20px; }"></textarea>
+        <button class="btn" style="margin-top:10px;" @click="saveCss">保存并应用</button>
+      </div>
+    </template>
+    <template v-else-if="beScreen==='js'">
+      <div class="fg">
+        <label>全局 JS（仅桌面）</label>
+        <textarea class="code" v-model="jsDraft" style="min-height:220px;" placeholder="console.log('hello');"></textarea>
+        <button class="btn" style="margin-top:10px;" @click="saveJs">保存并执行</button>
+      </div>
+    </template>
+    <template v-else-if="beScreen==='notify'">
+      <div class="col" style="gap:12px;">
+        <div class="card" style="gap:10px;">
+          <div class="row" style="justify-content:space-between;">
+            <div>
+              <div style="font-weight:700;font-size:15px;">新消息提醒</div>
+              <div class="tiny muted">对方发消息时振动 / 响铃（需浏览器通知权限）</div>
+            </div>
+            <label class="switch"><input type="checkbox" v-model="globalNotify" @change="saveGlobalBe" /><span class="slider"></span></label>
+          </div>
+          <template v-if="globalNotify">
+            <div class="fg">
+              <label>提醒方式</label>
+              <div class="row">
+                <button class="btn ghost sm" :class="{active: notifyVibrate}" @click="toggleNotifyStyle('vibrate')">振动</button>
+                <button class="btn ghost sm" :class="{active: notifySound}" @click="toggleNotifyStyle('sound')">提示音</button>
+                <button class="btn ghost sm" :class="{active: notifyDesktop}" @click="toggleNotifyStyle('desktop')">桌面通知</button>
+              </div>
+            </div>
+            <div class="fg">
+              <label>勿扰时段（可选，整点）</label>
+              <div class="row">
+                <input class="input" type="number" min="0" max="23" v-model.number="notifyQuietStart" placeholder="开始" />
+                <span class="muted">—</span>
+                <input class="input" type="number" min="0" max="23" v-model.number="notifyQuietEnd" placeholder="结束" />
+              </div>
+              <div class="tiny muted">在该时段内只静默入库，不振动不响铃。</div>
+            </div>
+          </template>
+        </div>
+        <button class="btn ghost" @click="testNotify">测试提醒</button>
+        <div v-if="notifyTip" class="tiny" :style="{color: notifyTipOk ? '#2b8a3e' : '#b00020'}">{{ notifyTip }}</div>
+      </div>
+    </template>
+    <template v-else-if="beScreen==='proactive'">
+      <div class="col" style="gap:12px;">
+        <div class="card" style="gap:10px;">
+          <div class="row" style="justify-content:space-between;">
+            <div>
+              <div style="font-weight:700;font-size:15px;">角色主动发消息</div>
+              <div class="tiny muted">空闲时角色会主动找你说话</div>
+            </div>
+            <label class="switch"><input type="checkbox" v-model="globalProactive" @change="saveGlobalBe" /><span class="slider"></span></label>
+          </div>
+          <template v-if="globalProactive">
+            <div class="fg">
+              <label>检查间隔（分钟，1–120）</label>
+              <input class="input" type="number" min="1" max="120" v-model.number="globalProactiveMin" @change="saveGlobalBe" />
+            </div>
+            <div class="fg">
+              <label>每次最多主动条数（1–5）</label>
+              <input class="input" type="number" min="1" max="5" v-model.number="globalProactiveMax" @change="saveGlobalBe" />
+            </div>
+            <div class="fg">
+              <label>触发条件</label>
+              <div class="row">
+                <button class="btn ghost sm" :class="{active: globalProactiveCond==='always'}" @click="setProactiveCond('always')">随时</button>
+                <button class="btn ghost sm" :class="{active: globalProactiveCond==='unread'}" @click="setProactiveCond('unread')">我未回复时</button>
+                <button class="btn ghost sm" :class="{active: globalProactiveCond==='idle'}" @click="setProactiveCond('idle')">我长时间没说话</button>
+              </div>
+            </div>
+            <div class="tiny muted">全局为默认规则，单个好友可在「好友设置」里覆盖。</div>
+          </template>
+        </div>
+        <div v-if="proactiveTip" class="tiny" style="color:#2b8a3e;">{{ proactiveTip }}</div>
+      </div>
+    </template>
+    <template v-else-if="beScreen==='diary'">
+      <div class="col" style="gap:12px;">
+        <div class="tiny muted">日记是角色以第一人称记录的心情与想法，由对话内容自动生成，只存本机。</div>
+        <div class="card" style="gap:10px;">
+          <div class="row" style="justify-content:space-between;">
+            <div>
+              <div style="font-weight:700;font-size:15px;">自动生成日记</div>
+              <div class="tiny muted">对方发来新消息后，按概率自动记一篇</div>
+            </div>
+            <label class="switch"><input type="checkbox" v-model="diaryAuto" @change="saveGlobalBe" /><span class="slider"></span></label>
+          </div>
+          <div class="fg" v-if="diaryAuto">
+            <label>触发概率（{{ diaryAutoRate }}%）</label>
+            <input class="input" type="range" min="0" max="100" v-model.number="diaryAutoRate" @change="saveGlobalBe" />
+          </div>
+        </div>
+        <div class="st">各角色日记</div>
+        <div v-if="diaryList.length===0" class="empty">还没有日记。去「聊天」打开一个角色，在好友设置里进入日记面板。</div>
+        <div v-for="d in diaryList" :key="d.friendId" class="item" @click="openDiaryByFriend(d.friendId, d.name)">
+          <img v-if="d.avatarUrl" class="avatar" :src="d.avatarUrl" />
+          <div v-else class="avatar ph">{{ (d.name||'?')[0] }}</div>
+          <div class="item-meta">
+            <div class="item-name">{{ d.name }}</div>
+            <div class="item-sub">{{ d.count }} 篇 · 最近：{{ d.latest || '暂无' }}</div>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+</template>
+
+<template v-else-if="currentApp==='settings'">
+  <div class="aheader">
+    <button class="ib" @click="setScreen==='main' ? closeApp() : (setScreen='main')"><svg class="icon" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <div class="title">{{ setScreen==='main' ? '设置' : setScreen==='api' ? 'API 设置' : setScreen==='data' ? '数据管理' : '关于' }}</div>
+    <div style="width:38px;"></div>
+  </div>
+  <div class="abody">
+    <template v-if="setScreen==='main'">
+      <div class="col" style="gap:10px;">
+        <div class="sitem" @click="setScreen='api'">
+          <div><div class="label">API 设置</div><div class="tiny muted">{{ apiConfigs.length }} 个配置</div></div>
+          <svg class="icon-sm" viewBox="0 0 24 24" style="color:#8e8e93;"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+        <div class="sitem" style="cursor:default;">
+          <div class="grow"><div class="label">允许旁白</div><div class="tiny muted">关闭后，聊天里不再显示旁白气泡，对方也不会写旁白</div></div>
+          <label class="switch"><input type="checkbox" v-model="narratageEnabled" @change="saveSettings" /><span class="slider"></span></label>
+        </div>
+        <div class="sitem" @click="setScreen='data'; countData()">
+          <div><div class="label">数据管理</div><div class="tiny muted">IndexedDB</div></div>
+          <svg class="icon-sm" viewBox="0 0 24 24" style="color:#8e8e93;"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+        <div class="sitem" @click="setScreen='about'">
+          <div><div class="label">关于</div><div class="tiny muted">v1.1</div></div>
+          <svg class="icon-sm" viewBox="0 0 24 24" style="color:#8e8e93;"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+      </div>
+    </template>
+    <template v-else-if="setScreen==='api'">
+      <div class="col" style="gap:8px;">
+        <div v-for="cfg in apiConfigs" :key="cfg.id" class="card" :class="{active: cfg.id===activeApiId}">
+          <div class="row" style="justify-content:space-between;">
+            <div class="grow">
+              <div style="font-weight:700;font-size:15px;">{{ cfg.name }}</div>
+              <div class="tiny muted">{{ cfg.protocol }} · {{ cfg.model }}</div>
+            </div>
+            <span v-if="cfg.id===activeApiId" class="tag active">使用中</span>
+          </div>
+          <div class="row">
+            <button class="btn ghost sm" @click="setActive(cfg)">设为当前</button>
+            <button class="btn ghost sm" @click="editApi(cfg)">编辑</button>
+            <button class="btn danger sm" @click="delApi(cfg)">删除</button>
+          </div>
+        </div>
+        <button class="btn ghost" @click="newApi">新增 API 配置</button>
+      </div>
+    </template>
+    <template v-else-if="setScreen==='data'">
+      <div class="col" style="gap:8px;">
+        <div class="sitem"><div class="label">角色</div><div class="value">{{ counts.characters }}</div></div>
+        <div class="sitem"><div class="label">好友</div><div class="value">{{ counts.friends }}</div></div>
+        <div class="sitem"><div class="label">消息</div><div class="value">{{ counts.messages }}</div></div>
+        <div class="sitem"><div class="label">世界书</div><div class="value">{{ counts.worldbooks }}</div></div>
+        <div class="sitem"><div class="label">剧情</div><div class="value">{{ counts.stories }}</div></div>
+        <div class="sitem"><div class="label">剧情消息</div><div class="value">{{ counts.storyMessages }}</div></div>
+        <div class="sitem"><div class="label">音乐</div><div class="value">{{ counts.musicLinks }}</div></div>
+        <div class="sitem"><div class="label">API 配置</div><div class="value">{{ counts.apiConfigs }}</div></div>
+      </div>
+      <div class="tiny muted" style="margin-top:10px;">数据自动保存：每次新增或修改内容都会即时写入浏览器本地数据库（IndexedDB），无需手动保存。换浏览器 / 清缓存会丢失，请定期导出备份。</div>
+      <div class="row" style="margin-top:14px;">
+        <button class="btn grow" @click="exportData">导出数据</button>
+      </div>
+      <div class="row">
+        <button class="btn ghost grow" @click="$refs.importFile.click()">导入数据</button>
+        <input ref="importFile" type="file" accept=".json,application/json" style="display:none;" @change="importData" />
+      </div>
+      <div v-if="importMsg" class="tiny" :style="{color: importOk ? '#2b8a3e' : '#b00020', marginTop:'10px'}">{{ importMsg }}</div>
+      <div class="st">危险区</div>
+      <button class="btn danger ghost" @click="clearAll">清空全部数据</button>
+    </template>
+    <template v-else>
+      <div class="placeholder">
+        <div class="iw"><svg class="icon-lg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v.01M12 12v4"/></svg></div>
+        <div style="font-size:16px; font-weight:700; color:#1c1c1e;">牙娅的小家 v1.1</div>
+        <div>桌面 · 聊天 · 剧情 · 世界书 · 音乐 · 美化</div>
+      </div>
+    </template>
+  </div>
+</template>
+
+<template v-else>
+  <div class="aheader">
+    <button class="ib" @click="closeApp"><svg class="icon" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <div class="title">{{ appName(currentApp) }}</div>
+    <div style="width:38px;"></div>
+  </div>
+  <div class="placeholder">
+    <div class="iw"><svg class="icon-lg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v.01M12 12v4"/></svg></div>
+    <div style="font-size:16px; font-weight:700; color:#1c1c1e;">{{ appName(currentApp) }}</div>
+    <div>此应用将在后续版本实现。</div>
+  </div>
+</template>
+
+</div>
+</div>
+
+<div v-if="cmenu.show" class="cmenu" :style="{left: cmenu.x+'px', top: cmenu.y+'px'}" @click.stop>
+  <button @click="editMsg(cmenu.msg)">编辑</button>
+  <button class="danger" @click="delMsg(cmenu.msg)">删除</button>
+  <button v-if="cmenu.msg.role==='char'" @click="reReply(cmenu.msg)">重回</button>
+</div>
+
+<div v-if="editModal.show" class="mask" @click.self="editModal.show=false">
+  <div class="modal">
+    <div class="mtitle">编辑消息</div>
+    <textarea v-model="editModal.content" style="min-height:140px;"></textarea>
+    <div class="mrow">
+      <button class="btn ghost sm" @click="editModal.show=false">取消</button>
+      <button class="btn sm" @click="saveEdit">保存</button>
+    </div>
+  </div>
+</div>
+
+<div v-if="showChar" class="mask" @click.self="showChar=false">
+  <div class="modal">
+    <div class="mtitle">创建角色</div>
+    <div class="upload">
+      <label class="upload-box">
+        <img v-if="charForm.avatarUrl" :src="charForm.avatarUrl" />
+        <svg v-else class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        <input type="file" accept="image/*" @change="pickFile($event, charForm)" />
+      </label>
+    </div>
+    <div class="fg"><label>姓名 *</label><input class="input" v-model="charForm.name" /></div>
+    <div class="fg"><label>性别</label><input class="input" v-model="charForm.gender" /></div>
+    <div class="fg"><label>人设 *</label><textarea v-model="charForm.persona"></textarea></div>
+    <div class="fg"><label>开场白</label><textarea v-model="charForm.opening"></textarea></div>
+    <div class="fg">
+      <label>引用世界书（可多选，留空则不注入）</label>
+      <div class="mlist" v-if="wbs.length">
+        <div v-for="wb in wbs" :key="wb.id" class="mitem" :class="{active: (charForm.worldbookIds||[]).indexOf(wb.id)>=0}" @click="toggleCharWb(wb.id)">
+          <span>{{ wb.name }}</span>
+          <svg v-if="(charForm.worldbookIds||[]).indexOf(wb.id)>=0" class="icon-sm" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+        </div>
+      </div>
+      <div v-else class="tiny muted">暂无世界书，可先在「世界书」应用创建。</div>
+    </div>
+    <div class="mrow">
+      <button class="btn ghost sm" @click="showChar=false">取消</button>
+      <button class="btn sm" @click="createChar">创建</button>
+    </div>
+  </div>
+</div>
+
+<div v-if="showStory" class="mask" @click.self="closeStoryModal">
+  <div class="modal">
+    <div class="mtitle">{{ storyForm.id ? '编辑剧情' : '创建剧情' }}</div>
+    <div class="fg"><label>标题 *</label><input class="input" v-model="storyForm.title" placeholder="例如：雨夜列车" /></div>
+    <div class="fg"><label>简介</label><textarea v-model="storyForm.description" placeholder="一句话概括故事主线（可选）"></textarea></div>
+    <div class="fg"><label>场景设定 *</label><textarea v-model="storyForm.setting" style="min-height:100px;" placeholder="世界观、时代、地点、规则……"></textarea></div>
+    <div class="fg"><label>开场（可选）</label><textarea v-model="storyForm.opening" style="min-height:80px;" placeholder="故事第一句话 / 初始情境"></textarea></div>
+    <div class="fg">
+      <label>引用世界书（可多选，留空则不注入）</label>
+      <div class="mlist" v-if="wbs.length">
+        <div v-for="wb in wbs" :key="wb.id" class="mitem" :class="{active: (storyForm.worldbookIds||[]).indexOf(wb.id)>=0}" @click="toggleStoryWb(wb.id)">
+          <span>{{ wb.name }}</span>
+          <svg v-if="(storyForm.worldbookIds||[]).indexOf(wb.id)>=0" class="icon-sm" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+        </div>
+      </div>
+      <div v-else class="tiny muted">暂无世界书，可先在「世界书」应用创建。</div>
+    </div>
+    <div v-if="storySaveTip" class="tiny" :style="{color: storySaveTipOk ? '#2b8a3e' : '#b00020'}">{{ storySaveTip }}</div>
+    <div class="mrow">
+      <button class="btn ghost sm" @click="closeStoryModal">取消</button>
+      <button class="btn sm" @click="saveStory">{{ storyForm.id ? '保存' : '创建' }}</button>
+    </div>
+  </div>
+</div>
+
+<div v-if="fs.show" class="mask" @click.self="fs.show=false">
+  <div class="modal">
+    <div class="mtitle">好友设置</div>
+    <div class="fg"><label>好友备注</label><input class="input" v-model="fs.remark" /></div>
+    <div class="card" style="gap:10px;">
+      <div class="row" style="justify-content:space-between;">
+        <div>
+          <div style="font-weight:700;font-size:15px;">消息提醒</div>
+          <div class="tiny muted">对方发来新消息时振动 / 提示音</div>
+        </div>
+        <label class="switch"><input type="checkbox" v-model="fs.notify" @change="saveFs" /><span class="slider"></span></label>
+      </div>
+      <div class="row" style="justify-content:space-between;">
+        <div>
+          <div style="font-weight:700;font-size:15px;">主动发消息</div>
+          <div class="tiny muted">空闲时按设定频率主动找你聊天</div>
+        </div>
+        <label class="switch"><input type="checkbox" v-model="fs.proactive" @change="saveFs" /><span class="slider"></span></label>
+      </div>
+      <template v-if="fs.proactive">
+        <div class="fg">
+          <label>主动间隔（分钟）</label>
+          <input class="input" type="number" min="1" max="1440" v-model.number="fs.proactiveMin" @change="saveFs" />
+        </div>
+        <div class="fg">
+          <label>每次最多主动条数</label>
+          <input class="input" type="number" min="1" max="10" v-model.number="fs.proactiveMax" @change="saveFs" />
+        </div>
+        <div class="tiny muted">下次主动消息：{{ nextProactiveText }}</div>
+      </template>
+    </div>
+    <div class="sitem" @click="openBeautify">
+      <div><div class="label">聊天室美化</div><div class="tiny muted">CSS / 气泡 / 背景</div></div>
+      <svg class="icon-sm" viewBox="0 0 24 24" style="color:#8e8e93;"><path d="M9 18l6-6-6-6"/></svg>
+    </div>
+    <div class="mrow">
+      <button class="btn ghost sm" @click="openDiary">角色日记</button>
+      <button class="btn sm" @click="saveRemark">保存</button>
+    </div>
+  </div>
+</div>
+
+<div v-if="diary.show" class="mask" @click.self="closeDiary">
+  <div class="modal" style="max-height:90vh;">
+    <div class="row" style="justify-content:space-between;">
+      <div class="mtitle" style="margin:0;">📔 {{ diary.friendName }} 的日记</div>
+      <button class="btn ghost sm" @click="diary.show=false">关闭</button>
+    </div>
+    <div class="tiny muted">根据你们的聊天内容，角色会以第一人称记录心情与想法。</div>
+    <div v-if="diary.entries.length===0" class="empty">还没有日记。多聊几句后，角色会开始记录。</div>
+    <div v-for="(d,i) in diary.entries" :key="i" class="card" style="gap:6px;">
+      <div class="row" style="justify-content:space-between;">
+        <div class="tiny muted" style="font-weight:700;">{{ fmtDate(d.date) }}</div>
+        <button v-if="d.draft" class="btn ghost sm" @click="genDiary(d)">补写</button>
+      </div>
+      <div style="font-size:14px;line-height:1.6;white-space:pre-wrap;">{{ d.content }}</div>
+    </div>
+    <button class="btn" @click="genDiary()" :disabled="diary.busy">{{ diary.busy ? '记录中…' : '写今日日记' }}</button>
+    <div class="tiny muted">日记只存在本机，不会外传。</div>
+  </div>
+</div>
+
+<div v-if="be.show" class="mask" @click.self="be.show=false">
+  <div class="modal">
+    <div class="mtitle">聊天室美化</div>
+    <div class="fg">
+      <label>聊天室背景</label>
+      <div class="row">
+        <label class="upload-box rect">
+          <img v-if="be.bgUrl" :src="be.bgUrl" />
+          <svg v-else class="icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/></svg>
+          <input type="file" accept="image/*" @change="pickBeBg" />
+        </label>
+        <div class="col grow">
+          <button v-if="be.bgUrl" class="btn ghost sm" @click="clearBeBg">清除</button>
+        </div>
+      </div>
+    </div>
+    <div class="fg"><label>聊天室 CSS</label><textarea class="code" v-model="be.chatCss" style="min-height:80px;"></textarea></div>
+    <div class="fg"><label>气泡 CSS</label><textarea class="code" v-model="be.bubbleCss" style="min-height:80px;"></textarea></div>
+    <div class="mrow">
+      <button class="btn ghost sm" @click="be.show=false">取消</button>
+      <button class="btn sm" @click="saveBe">保存</button>
+    </div>
+  </div>
+</div>
+
+<div v-if="apiModal.show" class="mask" @click.self="apiModal.show=false">
+  <div class="modal">
+    <div class="mtitle">{{ apiModal.form.id ? '编辑配置' : '新增配置' }}</div>
+    <div class="fg"><label>配置名</label><input class="input" v-model="apiModal.form.name" /></div>
+    <div class="fg">
+      <label>协议</label>
+      <select class="input" v-model="apiModal.form.protocol">
+        <option value="openai">OpenAI 兼容</option>
+        <option value="gemini">Gemini</option>
+        <option value="claude">Claude</option>
+      </select>
+      <div v-if="apiModal.form.protocol==='gemini'" class="tiny muted" style="margin-top:6px;">Gemini：Base URL 填 `https://generativelanguage.googleapis.com/v1beta`，模型如 `gemini-2.0-flash`，API Key 填 Google AI Studio 的密钥。</div>
+      <div v-else-if="apiModal.form.protocol==='openai'" class="tiny muted" style="margin-top:6px;">OpenAI 兼容：Base URL 填接口地址（末尾不要带 `/chat/completions`），模型填模型名。</div>
+      <div v-else class="tiny muted" style="margin-top:6px;">Claude：Base URL 填 `https://api.anthropic.com`，模型如 `claude-sonnet-4-20250514`。</div>
+    </div>
+    <div class="fg"><label>Base URL</label><input class="input" v-model="apiModal.form.baseUrl" /></div>
+    <div class="fg"><label>API Key</label><input class="input" type="password" v-model="apiModal.form.apiKey" /></div>
+    <div class="fg">
+      <label>模型</label>
+      <div class="row">
+        <input class="input grow" v-model="apiModal.form.model" placeholder="gpt-4o-mini / deepseek-chat" />
+        <button class="btn ghost sm" @click="pullModels" :disabled="apiModal.pulling">{{ apiModal.pulling ? '拉取中…' : '一键拉取' }}</button>
+      </div>
+      <div v-if="apiModal.models.length" style="margin-top:8px;">
+        <input class="input" v-model="apiModal.filter" :placeholder="'搜索（共 ' + apiModal.models.length + ' 个）'" />
+        <div class="mlist">
+          <div v-for="m in filteredModels" :key="m" class="mitem" :class="{active: apiModal.form.model===m}" @click="apiModal.form.model=m">
+            <span>{{ m }}</span>
+            <svg v-if="apiModal.form.model===m" class="icon-sm" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="fg grow"><label>温度</label><input class="input" type="number" step="0.1" v-model.number="apiModal.form.temperature" /></div>
+      <div class="fg grow"><label>最大输出</label><input class="input" type="number" step="128" v-model.number="apiModal.form.maxTokens" /></div>
+    </div>
+    <div class="mrow">
+      <button class="btn ghost sm" @click="apiModal.show=false">取消</button>
+      <button class="btn ghost sm" @click="testApi" :disabled="apiModal.testing">{{ apiModal.testing ? '测试中…' : '测试' }}</button>
+      <button class="btn sm" @click="saveApi">保存</button>
+    </div>
+    <div v-if="apiModal.result" class="tiny" :style="{color: apiModal.ok ? '#2b8a3e' : '#b00020'}">{{ apiModal.result }}</div>
+  </div>
+</div>
+
+<div v-if="wbModal.show" class="mask" @click.self="wbModal.show=false">
+  <div class="modal">
+    <div class="mtitle">{{ wbModal.form.id ? '编辑条目' : '新增条目' }}</div>
+    <div class="fg"><label>内容 *</label><textarea v-model="wbModal.form.content" style="min-height:120px;"></textarea></div>
+    <div class="fg">
+      <label>注入位置</label>
+      <select class="input" v-model="wbModal.form.position">
+        <option value="before">前置</option>
+        <option value="middle">中置</option>
+        <option value="after">后置</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>触发方式</label>
+      <select class="input" v-model="wbModal.form.trigger">
+        <option value="always">始终注入</option>
+        <option value="keyword">关键词触发</option>
+        <option value="probability">概率触发</option>
+      </select>
+    </div>
+    <div class="fg" v-if="wbModal.form.trigger==='keyword'">
+      <label>关键词（逗号分隔）</label>
+      <input class="input" v-model="wbModal.form.keywordsText" />
+    </div>
+    <div class="fg" v-if="wbModal.form.trigger==='probability'">
+      <label>触发概率（0-1）</label>
+      <input class="input" type="number" step="0.1" min="0" max="1" v-model.number="wbModal.form.probability" />
+    </div>
+    <div class="mrow">
+      <button class="btn ghost sm" @click="wbModal.show=false">取消</button>
+      <button class="btn sm" @click="saveWbEntry">保存</button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script>
+const { createApp } = Vue;
+const DB = 'mini_phone_db', DVER = 7;
+let db = null;
+const STORES = ['accounts', 'characters', 'friends', 'messages', 'apiConfigs', 'worldbooks', 'stories', 'storyMessages', 'musicLinks', 'diaries', 'settings'];
+const ICONS = {
+  chat: '<svg viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H7l-4 4V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>',
+  story: '<svg viewBox="0 0 24 24"><path d="M4 4h10l6 6v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M14 4v6h6"/><path d="M8 13h8M8 17h5"/></svg>',
+  worldbook: '<svg viewBox="0 0 24 24"><path d="M4 4h11a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3z"/><path d="M18 7h2v13H7"/></svg>',
+  memory: '<svg viewBox="0 0 24 24"><path d="M12 3v18M5 8l7-5 7 5M5 16l7 5 7-5"/><circle cx="12" cy="12" r="3"/></svg>',
+  profile: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2.4"/><path d="M5 17c1.5-2 4-2 5.5 0M14 10h4M14 14h4"/></svg>',
+  store: '<svg viewBox="0 0 24 24"><path d="M4 7l1.5-3h13L20 7M4 7h16v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M9 11a3 3 0 0 0 6 0"/></svg>',
+  notice: '<svg viewBox="0 0 24 24"><path d="M18 9a6 6 0 1 0-12 0c0 6-3 7-3 7h18s-3-1-3-7"/><path d="M10.5 20a2 2 0 0 0 3 0"/></svg>',
+  beautify: '<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 2-2 0-1.5-1-2-1-3 0-1.2 1-2 2.5-2H19a2 2 0 0 0 2-2c0-5-4-9-9-9z"/></svg>',
+  settings: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-3 .7V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-3-.7l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .7-3H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 .7-3l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 3 .7H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 3-.7l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.7 3V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+  music: '<svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg>',
+  diary: '<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 3v3M16 3v3M8 12h8M8 16h6"/></svg>'
+};
+function openDB() {
+  return new Promise((res, rej) => {
+    if (!window.indexedDB) return rej(new Error('IndexedDB 不可用'));
+    const r = indexedDB.open(DB, DVER);
+    r.onupgradeneeded = e => {
+      const d = e.target.result, tx = e.target.transaction;
+      const es = (n, o) => d.objectStoreNames.contains(n) ? tx.objectStore(n) : d.createObjectStore(n, o);
+      const ei = (s, n, k, o) => { if (!s.indexNames.contains(n)) s.createIndex(n, k, o || {}); };
+      es('accounts', { keyPath: 'id' });
+      const c = es('characters', { keyPath: 'id' }); ei(c, 'accountId', 'accountId');
+      const f = es('friends', { keyPath: 'id' }); ei(f, 'accountId', 'accountId');
+      const m = es('messages', { keyPath: 'id' }); ei(m, 'friendId', 'friendId'); ei(m, 'accountId', 'accountId');
+      const ac = es('apiConfigs', { keyPath: 'id' }); ei(ac, 'accountId', 'accountId');
+      const w = es('worldbooks', { keyPath: 'id' }); ei(w, 'accountId', 'accountId');
+      const st = es('stories', { keyPath: 'id' }); ei(st, 'accountId', 'accountId');
+      const sm = es('storyMessages', { keyPath: 'id' }); ei(sm, 'storyId', 'storyId');
+      const ml = es('musicLinks', { keyPath: 'id' }); ei(ml, 'accountId', 'accountId');
+      const dy = es('diaries', { keyPath: 'id' }); ei(dy, 'friendId', 'friendId'); ei(dy, 'date', ['friendId', 'date'], { unique: true });
+      es('settings', { keyPath: 'accountId' });
+    };
+    r.onsuccess = () => { db = r.result; res(db); };
+    r.onerror = () => rej(r.error);
+  });
+}
+// 写入前先做一次结构化克隆清洗：剥掉 Vue 响应式 Proxy、函数、循环引用、
+// Date 等特殊对象，避免 IndexedDB 报 "could not be cloned"。
+// 写入后再通过 get 读回一次，确保 onsuccess 里拿到的是干净数据。
+function cloneForIDB(v) {
+  if (v === undefined) v = null;
+  try { v = JSON.parse(JSON.stringify(v)); } catch (e) {
+    // 含不可序列化字段时手动剥离
+    const seen = new WeakSet();
+    v = (function clean(o) {
+      if (o === null || o === undefined) return null;
+      const t = typeof o;
+      if (t !== 'object') return o;
+      if (seen.has(o)) return null;
+      seen.add(o);
+      if (Array.isArray(o)) return o.map(clean);
+      const out = {};
+      for (const k of Object.keys(o)) {
+        try { const cv = clean(o[k]); if (cv !== undefined) out[k] = cv; } catch (e) {}
+      }
+      return out;
+    })(v);
+  }
+  return v;
+}
+const put = (s, v) => new Promise((res, rej) => {
+  let clean;
+  try { clean = cloneForIDB(v); } catch (e) { return rej(e); }
+  const r = db.transaction(s, 'readwrite').objectStore(s).put(clean);
+  r.onsuccess = () => { res(r.result); };
+  r.onerror = () => rej(r.error);
+});
+const get = (s, k) => new Promise((res, rej) => { const r = db.transaction(s, 'readonly').objectStore(s).get(k); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+const del = (s, k) => new Promise((res, rej) => { const r = db.transaction(s, 'readwrite').objectStore(s).delete(k); r.onsuccess = () => res(); r.onerror = () => rej(r.error); });
+const getByI = (s, i, q) => new Promise((res, rej) => { const r = db.transaction(s, 'readonly').objectStore(s).index(i).get(q); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+const getAllI = (s, i, q) => new Promise((res, rej) => {
+  const idx = db.transaction(s, 'readonly').objectStore(s).index(i);
+  const out = [];
+  const r = idx.openCursor(IDBKeyRange.only(q));
+  r.onsuccess = e => { const c = e.target.result; if (c) { out.push(c.value); c.continue(); } else res(out); };
+  r.onerror = () => rej(r.error);
+});
+const cnt = s => new Promise((res, rej) => { const r = db.transaction(s, 'readonly').objectStore(s).count(); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+const getAll = s => new Promise((res, rej) => { const r = db.transaction(s, 'readonly').objectStore(s).getAll(); r.onsuccess = () => res(r.result || []); r.onerror = () => rej(r.error); });
+const clearStore = s => new Promise((res, rej) => { const r = db.transaction(s, 'readwrite').objectStore(s).clear(); r.onsuccess = () => res(); r.onerror = () => rej(r.error); });
+function blobToB64(blob) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result.split(',')[1]); r.onerror = () => rej(r.error); r.readAsDataURL(blob); }); }
+async function b64ToBlob(b64, type) { const buf = Uint8Array.from(atob(b64), c => c.charCodeAt(0)); return new Blob([buf], { type: type || 'application/octet-stream' }); }
+const ENC = 'meta-phone-export-v1';
+async function pack() {
+  const out = { _enc: ENC, exportedAt: new Date().toISOString(), stores: {} };
+  for (const s of STORES) {
+    const rows = await getAll(s);
+    out.stores[s] = await Promise.all(rows.map(async r => {
+      const o = {};
+      for (const k of Object.keys(r)) { const v = r[k]; o[k] = (v && typeof v === 'object' && typeof v.arrayBuffer === 'function') ? { __blob: 1, type: v.type || '', data: await blobToB64(v) } : v; }
+      return o;
+    }));
+  }
+  return out;
+}
+async function unpack(data) {
+  if (!data || data._enc !== ENC) throw new Error('文件格式不正确或不是本应用导出的数据');
+  for (const s of STORES) {
+    await clearStore(s);
+    const rows = data.stores && data.stores[s] || [];
+    for (const r of rows) {
+      const o = {};
+      for (const k of Object.keys(r)) { const v = r[k]; o[k] = (v && v.__blob) ? await b64ToBlob(v.data, v.type) : v; }
+      await put(s, o);
+    }
+  }
+}
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+const now = () => Date.now();
+const dayKey = ts => { const d = new Date(ts); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+const fmtTime = ts => { const d = new Date(ts); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+const fmtDate = ts => { if (!ts) return ''; const d = new Date(ts); return (d.getMonth() + 1) + '月' + d.getDate() + '日'; };
+const fmtLong = ts => { const d = new Date(ts); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + fmtTime(ts); };
+const clean = s => (s || '').replace(/<[^>]+>/g, '').trim();
+const hasWav = () => typeof Audio !== 'undefined';
+const playDing = () => { try { const ctx = new (window.AudioContext || window.webkitAudioContext)(); const o = ctx.createOscillator(); const g = ctx.createGain(); o.frequency.value = 880; g.gain.value = 0.08; o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.15); } catch (e) {} };
+function inQuiet(h, s, e) { if (s == null || e == null || s === '' || e === '') return false; h = Number(h); s = Number(s); e = Number(e); if (s === e) return true; return s < e ? (h >= s && h < e) : (h >= s || h < e); }
+async function buildDiaryPrompt(acc, ch, recent, lastDiary) {
+  const summary = recent.slice(-14).map(m => (m.role === 'user' ? '{user}' : (ch.name || '{char}')) + '：' + clean(m.content)).join('\n');
+  return '你是「' + (ch.name || '角色') + '」。请以上帝视角之外的方式，用第一人称写一篇私人日记，记录你与{user}（' + (acc.nickname || '用户') + '）互动后的真实心情、想法、回忆或未说出口的话。\n\n【要求】\n1. 只写 120-220 字，中文\n2. 口语化、有细节、有情绪，禁止流水账\n3. 不要写成对话，不要出现第三人称旁白\n4. 允许犹豫、嫉妒、心动、孤独等真实感受\n5. 若没什么可写，可写今日思绪或回忆，但不要编造未发生的事\n\n【最近对话】\n' + summary + '\n\n' + (lastDiary ? '【上一篇日记】\n' + lastDiary + '\n\n' : '') + '【今日日记正文，直接写，不要标题】';
+}
+function buildProactivePrompt(acc, ch, recent, remind) {
+  const last = recent.filter(m => m.role === 'char').slice(-3).map(m => clean(m.content)).join('\n');
+  return '你是「' + (ch.name || '角色') + '」。你主动给用户发一条消息。\n\n【要求】\n1. 只输出这一条消息，不要旁白、不要标签\n2. 80-160 字，口语化，符合你的人设\n3. 自然、有生活感，像真的想找对方说话\n4. 不要追问"在吗"，可以分享一件小事、一个念头、或接着上次的对话\n' + (remind ? '5. 上一条你发的消息是：' + remind + '\n   如果对方一直没回，可以换种方式再提一次，但别显得纠缠。\n' : '') + '\n【用户人设】' + (acc.nickname || '用户') + '：' + (acc.persona || '未填写');
+}
+const dummyReply = () => '<think>自然回应。</think>\n\n嗯，我在听。\n\n<narratage>她看了一眼手机。</narratage>';
+const SUPPORT_SCOPE = (() => { try { const sh = new CSSStyleSheet(); sh.insertRule('@scope (body) { * { color: red } }'); return true; } catch (e) { return false; } })();
+const scopeCss = (css, sc) => !css || !css.trim() ? '' : (SUPPORT_SCOPE ? '@scope (' + sc + ') {\n' + css + '\n}' : css);
+
+// 按引用关系过滤世界书：只返回被指定 worldbookIds 引用的世界书
+function filterWbsByRef(wbs, refIds) {
+  if (!refIds || !refIds.length) return [];
+  return (wbs || []).filter(function (wb) { return refIds.indexOf(wb.id) >= 0; });
+}
+
+function buildSys(acc, ch, wbs, lastU) {
+  const nm = (ch && ch.name) || '角色';
+  const core = '你正在扮演「' + nm + '」，一个存在于用户手机里的角色。\n你必须严格遵守角色人设，不得脱离角色，不得提及自己是 AI。\n主动推动剧情，避免封闭式回复。\n\n【输出格式】\n1. 直接输出正文，不要输出 <think> 标签，也不要写思维链或推理过程\n2. 多段用空行分隔\n3. 旁白用 <narratage>...</narratage>，每段不超 50 字，总量不超 50%\n4. 严禁捏造其他标签，严禁代替用户发言\n5. 每次 1-6 句话语，可有旁白不能没有话语\n6. 优先角色内核，禁止过度揣摩用户';
+  const col = { before: [], middle: [], after: [] };
+  const txt = (lastU || '').toLowerCase();
+  // 世界书引用：只注入角色显式引用的世界书
+  const eff = filterWbsByRef(wbs, ch && ch.worldbookIds);
+  eff.forEach(function (w) { (w.entries || []).forEach(function (en) {
+    if (!en.enabled) return;
+    let ok = false;
+    if (en.trigger === 'always') ok = true;
+    else if (en.trigger === 'keyword') { const ks = (en.keywords || []).map(k => String(k).toLowerCase()); ok = ks.length === 0 || ks.some(k => txt.includes(k)); }
+    else if (en.trigger === 'probability') ok = Math.random() < (en.probability == null ? 0.5 : en.probability);
+    if (ok && en.content) col[en.position || 'before'].push(en.content);
+  }); });
+  const w1 = col.before.length ? '【世界书·前置】\n' + col.before.join('\n\n') : '';
+  const w2 = col.middle.length ? '【世界书·中置】\n' + col.middle.join('\n\n') : '';
+  const w3 = col.after.length ? '【世界书·后置】\n' + col.after.join('\n\n') : '';
+  const cc = '【角色人设】\n姓名：' + ((ch && ch.name) || '未命名') + '\n性别：' + ((ch && ch.gender) || '未填写') + '\n人设：' + ((ch && ch.persona) || '未填写');
+  const uc = '【用户人设】\n昵称：' + (acc.nickname || acc.username) + '\n性别：' + (acc.gender || '未填写') + '\n人设：' + (acc.persona || '未填写');
+  return [core, w1, cc, w2, uc, '', w3].filter(Boolean).join('\n\n');
+}
+
+function buildStorySys(st, wbs) {
+  const base = '你是一个互动剧情生成器。用户扮演角色，你负责推进剧情。\n\n【标题】\n' + (st.title || '') + '\n\n【简介】\n' + (st.description || '（无）') + '\n\n【场景设定】\n' + (st.setting || '') + '\n\n【规则】\n1. 用户输入是角色的行动，根据场景自然推进\n2. 每次回复 80-200 字，第三人称或第二人称叙事\n3. 不使用任何标签，只输出纯叙事文本\n4. 不替用户决定下一步行动\n5. 保持连贯，不要跳戏\n6. 角色保持真实反应';
+  // 世界书引用：只注入剧情显式引用的世界书（always / keyword 触发）
+  const eff = filterWbsByRef(wbs, st && st.worldbookIds);
+  if (!eff.length) return base;
+  const col = { before: [], after: [] };
+  const txt = ((st.setting || '') + ' ' + (st.description || '')).toLowerCase();
+  eff.forEach(function (w) { (w.entries || []).forEach(function (en) {
+    if (!en.enabled) return;
+    let ok = false;
+    if (en.trigger === 'always') ok = true;
+    else if (en.trigger === 'keyword') { const ks = (en.keywords || []).map(function (k) { return String(k).toLowerCase(); }); ok = ks.length === 0 || ks.some(function (k) { return txt.includes(k); }); }
+    else if (en.trigger === 'probability') ok = Math.random() < (en.probability == null ? 0.5 : en.probability);
+    if (ok && en.content) {
+      if (en.position === 'after') col.after.push(en.content); else col.before.push(en.content);
+    }
+  }); });
+  const wbSec = [];
+  if (col.before.length) wbSec.push('【世界书知识】\n' + col.before.join('\n\n'));
+  if (col.after.length) wbSec.push('【世界书补充】\n' + col.after.join('\n\n'));
+  return [base, wbSec.join('\n\n')].filter(Boolean).join('\n\n');
+}
+
+// 把温度限制在协议允许范围内：OpenAI 兼容 / Gemini 为 [0, 2]，Claude 为 [0, 1]
+function clampTemp(t, protocol) {
+  let v = Number(t);
+  if (!Number.isFinite(v)) v = 1;
+  v = Math.max(0, Math.min(protocol === 'claude' ? 1 : 2, v));
+  return v;
+}
+async function callAPI(cfg, msgs) {
+  const base = (cfg.baseUrl || '').replace(/\/+$/, '');
+  const h = { 'Content-Type': 'application/json' };
+  const t = clampTemp(cfg.temperature, cfg.protocol);
+  const mx = Number.isFinite(Number(cfg.maxTokens)) && Number(cfg.maxTokens) > 0 ? Number(cfg.maxTokens) : 2048;
+  const md = String(cfg.model || '').trim();
+  if (!md) throw new Error('模型名为空');
+  let url, body;
+  if (cfg.protocol === 'gemini') {
+    // Google Gemini：路径末尾若已含 generateContent 则直接使用，否则自动拼接
+    let p = base;
+    if (!/\/generateContent(\?|$)/.test(p)) p = p.replace(/\/+$/, '') + '/models/' + encodeURIComponent(md) + ':generateContent';
+    url = p + (p.indexOf('?') >= 0 ? '&' : '?') + 'key=' + encodeURIComponent(cfg.apiKey || '');
+    const sys = (msgs.find(m => m.role === 'system') || { content: '' }).content;
+    const contents = msgs.filter(m => m.role !== 'system').map(m => ({ role: m.role === 'model' ? 'model' : 'user', parts: [{ text: m.content }] }));
+    body = { contents, generationConfig: { temperature: t, maxOutputTokens: mx } };
+    if (sys) body.systemInstruction = { role: 'system', parts: [{ text: sys }] };
+  } else if (cfg.protocol === 'claude') {
+    url = base + '/v1/messages';
+    h['x-api-key'] = cfg.apiKey || ''; h['anthropic-version'] = '2023-06-01'; h['anthropic-dangerous-direct-browser-access'] = 'true';
+    const sys = (msgs.find(m => m.role === 'system') || { content: '' }).content;
+    body = { model: md, max_tokens: mx, temperature: t, system: sys,
+      messages: msgs.filter(m => m.role !== 'system').map(m => ({ role: m.role === 'model' ? 'model' : 'user', content: m.content })) };
+  } else {
+    url = base + '/v1/chat/completions';
+    h['Authorization'] = 'Bearer ' + (cfg.apiKey || '');
+    body = { model: md, messages: msgs, temperature: t, max_tokens: mx };
+  }
+  const r = await fetch(url, { method: 'POST', headers: h, body: JSON.stringify(body) });
+  if (!r.ok) {
+    const txt = await r.text().catch(() => '');
+    let det = txt.slice(0, 300);
+    try { const j = JSON.parse(txt); det = (j.error && j.error.message) || j.message || det; } catch (e) {}
+    throw new Error('HTTP ' + r.status + ': ' + det);
+  }
+  const d = await r.json();
+  if (cfg.protocol === 'gemini') return (d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts || []).map(p => p.text || '').join('');
+  if (cfg.protocol === 'claude') return (d.content || []).map(c => c.text || '').join('');
+  return (d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content) || '';
+}
+
+createApp({
+  data() { return {
+    dbReady: false, dbError: '',
+    screen: 'loading',
+    meForm: { nickname: '', gender: '', persona: '', avatarBlob: null, avatarUrl: '' },
+    account: null, accountId: '', autoSaveTip: '', importMsg: '', importOk: true,
+    clockText: '',
+    currentApp: null, desktopApps: [], dockApps: [],
+    chatScreen: 'home', homeTab: 'friends',
+    friends: [], characters: [], friend: null,
+    messages: [], msgInput: '', narrMode: false, showDrawer: false,
+    typingMap: {}, pendings: {},
+    lpTimer: null, cmenu: { show: false, msg: null, x: 0, y: 0 },
+    editModal: { show: false, msg: null, content: '' },
+    addFriendQuery: '', showChar: false,
+    charForm: { name: '', gender: '', persona: '', opening: '', avatarBlob: null, avatarUrl: '', worldbookIds: [] },
+    fs: { show: false, remark: '', notify: true, proactive: false, proactiveMin: 0, proactiveMax: 0 },
+    be: { show: false, chatCss: '', bubbleCss: '', bgBlob: null, bgUrl: '' },
+    storyScreen: 'list', stories: [], curStory: null, storyMsgs: [], storyInput: '', storyTyping: false, showStory: false, storySaveTip: '', storySaveTipOk: true,
+    storyForm: { id: '', title: '', description: '', setting: '', opening: '', worldbookIds: [] },
+    wbScreen: 'list', wbs: [], curWb: null, wbSaveTip: '', wbSaveTipOk: true, wbDirty: false,
+    wbModal: { show: false, form: { id: '', content: '', position: 'before', trigger: 'always', keywordsText: '', probability: 0.5 } },
+    musicLink: '', musicLinks: [], curMusicId: '',
+    listen: { show: false, musicId: '', friendId: '', active: false, rate: 40, lastSangAt: 0, busy: false, tip: '' },
+    listenTipOk: true,
+    diaryScreen: 'list',
+    beScreen: 'main',
+    desktopBackgroundBlob: null, desktopBackgroundUrl: '',
+    desktopCss: '', desktopJs: '', cssDraft: '', jsDraft: '',
+    globalNotify: false, notifyVibrate: true, notifySound: false, notifyDesktop: false, notifyQuietStart: '', notifyQuietEnd: '', notifyTip: '', notifyTipOk: true,
+    globalProactive: false, globalProactiveMin: 10, globalProactiveMax: 1, globalProactiveCond: 'unread', proactiveTip: '',
+    diaryAuto: true, diaryAutoRate: 40, diary: { show: false, friendId: '', friendName: '', entries: [], busy: false }, diaryList: [],
+    narratageEnabled: true,
+    diaryView: { friendId: '', name: '', entries: [], busy: false },
+    apiConfigs: [], activeApiId: '',
+    apiModal: { show: false, pulling: false, testing: false, result: '', ok: false, models: [], filter: '',
+      form: { id: '', name: '', protocol: 'openai', baseUrl: 'https://api.openai.com', apiKey: '', model: '', temperature: 1, maxTokens: 2048 } },
+    setScreen: 'main',
+    counts: { accounts: 0, characters: 0, friends: 0, messages: 0, worldbooks: 0, stories: 0, storyMessages: 0, musicLinks: 0, apiConfigs: 0 }
+  }; },
+  computed: {
+    typing() { return !!(this.friend && this.typingMap[this.friend.id]); },
+    chatBgStyle() { const f = this.friend; return f && f.chatBgUrl ? { backgroundImage: 'url("' + f.chatBgUrl + '")', backgroundSize: 'cover', backgroundPosition: 'center' } : {}; },
+    desktopStyle() {
+      const s = {};
+      if (this.desktopBackgroundUrl) { s.backgroundImage = 'url("' + this.desktopBackgroundUrl + '")'; s.backgroundSize = 'cover'; s.backgroundPosition = 'center'; }
+      return s;
+    },
+    filteredModels() { const kw = (this.apiModal.filter || '').toLowerCase().trim(); return !kw ? this.apiModal.models : this.apiModal.models.filter(m => m.toLowerCase().includes(kw)); },
+    musicType() { const m = this.musicLinks.find(x => x.id === this.curMusicId); return m ? m.type : 'song'; },
+    musicEmbed() {
+      const m = this.musicLinks.find(x => x.id === this.curMusicId);
+      if (!m) return '';
+      return '//music.163.com/outchain/player?type=' + (m.type === 'playlist' ? 0 : 2) + '&id=' + m.resourceId + '&auto=0&height=' + (m.type === 'playlist' ? 430 : 86);
+    },
+    notifyStyleText() {
+      const a = []; if (this.notifyVibrate) a.push('振动'); if (this.notifySound) a.push('提示音'); if (this.notifyDesktop) a.push('桌面通知'); return a.length ? a.join(' · ') : '未选方式';
+    },
+    nextProactiveText() {
+      const f = this.friend; if (!f) return '未开启';
+      if (!f.proactive) return '未开启主动消息';
+      return f.proactiveNext ? fmtLong(f.proactiveNext) : '即将检查';
+    },
+    unreadTotal() { return (this.friends || []).reduce((s, f) => s + (f.unread || 0), 0); },
+    listenSongName() {
+      const m = this.musicLinks.find(x => x.id === this.listen.musicId); if (!m) return '未选择';
+      return (m.type === 'playlist' ? '歌单' : '单曲') + ' ' + m.resourceId;
+    },
+    listenFriendName() {
+      const f = this.friends.find(x => x.id === this.listen.friendId);
+      return f ? (f.remark || (f.char && f.char.name) || '对方') : '未选择';
+    },
+    listenFriend() { return this.friends.find(x => x.id === this.listen.friendId) || null; },
+    listenChar() { const f = this.listenFriend; return f && f.char ? f.char : null; }
+  },
+  async mounted() {
+    this.tick(); setInterval(this.tick, 30000);
+    try {
+      await openDB();
+      this.chatStyleEl = document.createElement('style'); document.head.appendChild(this.chatStyleEl);
+      this.bubbleStyleEl = document.createElement('style'); document.head.appendChild(this.bubbleStyleEl);
+      this.desktopCssEl = document.createElement('style'); document.head.appendChild(this.desktopCssEl);
+      this.desktopApps = [
+        { id: 'chat', name: '聊天', icon: ICONS.chat },
+        { id: 'story', name: '剧情', icon: ICONS.story },
+        { id: 'worldbook', name: '世界书', icon: ICONS.worldbook },
+        { id: 'memory', name: '记忆', icon: ICONS.memory },
+        { id: 'profile', name: '档案', icon: ICONS.profile },
+        { id: 'store', name: '商店', icon: ICONS.store },
+        { id: 'notice', name: '通知', icon: ICONS.notice }
+      ];
+      this.dockApps = [
+        { id: 'diary', name: '日记', icon: ICONS.diary },
+        { id: 'music', name: '音乐', icon: ICONS.music },
+        { id: 'beautify', name: '美化', icon: ICONS.beautify },
+        { id: 'settings', name: '设置', icon: ICONS.settings }
+      ];
+      this.dbReady = true;
+      await this.bootstrap();
+    } catch (e) { this.dbError = 'IndexedDB 初始化失败：' + (e.message || e); }
+  },
+  methods: {
+    fmtTime, fmtDate, clean,
+    tick() { const d = new Date(), w = ['周日','周一','周二','周三','周四','周五','周六'][d.getDay()]; this.clockText = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') + ' ' + w; },
+    appName(id) { return { chat:'聊天', story:'剧情', worldbook:'世界书', memory:'记忆', profile:'档案', store:'商店', notice:'通知', beautify:'美化', settings:'设置', music:'音乐', diary:'日记', musicListen:'一起听' }[id] || id; },
+    openApp(id) { this.currentApp = id; this.screen = 'app'; if (id === 'chat') { this.chatScreen = 'home'; this.homeTab = 'friends'; } if (id === 'story') this.storyScreen = 'list'; if (id === 'worldbook') this.wbScreen = 'list'; if (id === 'settings') this.setScreen = 'main'; if (id === 'beautify') this.beScreen = 'main'; if (id === 'diary') { this.diaryScreen = 'list'; this.refreshDiaryList(); } if (id === 'music') this.loadMusic(); },
+    closeApp() { this.currentApp = null; this.screen = 'desktop'; },
+    uid10() { return Math.random().toString(36).slice(2, 10); },
+    ensureIds(obj, idKeys) { for (const k of idKeys) if (!obj[k]) obj[k] = this.uid10(); },
+    async bootstrap() {
+      // 无登录模式：读取或创建本机唯一账号（所有数据挂在这个 accountId 下）
+      this.screen = 'loading';
+      let acc = (await getAll('accounts'))[0];
+      if (!acc) { acc = { id: this.uid10(), username: 'me', nickname: '我', persona: '', gender: '', createdAt: Date.now() }; await put('accounts', acc); }
+      this.account = acc;
+      if (acc.avatarBlob) acc.avatarUrl = URL.createObjectURL(acc.avatarBlob);
+      this.meForm = { nickname: acc.nickname || '', gender: acc.gender || '', persona: acc.persona || '', avatarBlob: acc.avatarBlob || null, avatarUrl: acc.avatarUrl || '' };
+      await this.loadAll();
+      this.screen = 'desktop';
+    },
+    async login() {}, async register() {}, logout() {},
+    async pickFile(e, tgt) {
+      const f = e.target.files[0]; if (!f) return;
+      const max = 1024 * 1024; // 1MB，避免大图写入 IndexedDB 卡顿
+      let file = f;
+      // 压缩：缩到 512px 以内 + 转 jpg，解决 HEIC 等格式不被支持、体积过大问题
+      if ((f.type && !/^image\/(jpeg|jpg|png|webp|gif)$/i.test(f.type)) || f.size > max) {
+        try {
+          const bmp = await createImageBitmap(f);
+          const MAX = 512, scale = Math.min(1, MAX / Math.max(bmp.width, bmp.height));
+          const w = Math.max(1, Math.round(bmp.width * scale)), h = Math.max(1, Math.round(bmp.height * scale));
+          const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+          cv.getContext('2d').drawImage(bmp, 0, 0, w, h);
+          const blob = await new Promise(res => cv.toBlob(res, 'image/jpeg', 0.85));
+          if (blob) file = blob;
+        } catch (e) { /* 压缩失败则沿用原文件，让后续逻辑处理 */ }
+      }
+      const b = new Blob([await file.arrayBuffer()], { type: file.type && file.type.indexOf('image/') === 0 ? file.type : 'image/jpeg' });
+      if (tgt.avatarUrl) URL.revokeObjectURL(tgt.avatarUrl);
+      tgt.avatarBlob = b; tgt.avatarUrl = URL.createObjectURL(b); e.target.value = '';
+    },
+    async onMeFile(e) { await this.pickFile(e, this.meForm); this.saveMe(); },
+    async saveMe() {
+      // 资料自动保存（防抖）
+      if (this._meTimer) clearTimeout(this._meTimer);
+      this._meTimer = setTimeout(() => this._saveMeNow(), 600);
+    },
+    async _saveMeNow() {
+      const f = this.meForm, a = this.account;
+      a.nickname = f.nickname.trim() || '我'; a.gender = f.gender.trim(); a.persona = f.persona.trim(); a.avatarBlob = f.avatarBlob;
+      if (f.avatarBlob && !f.avatarUrl) f.avatarUrl = URL.createObjectURL(f.avatarBlob);
+      a.avatarUrl = f.avatarUrl;
+      try { await put('accounts', a); this.autoSaveTip = '✓ 已自动保存 ' + this.fmtTime(Date.now()); }
+      catch (e) { this.autoSaveTip = '⚠ 保存失败'; }
+    },
+    resetApp() {
+      // 不再有登录态：仅回到桌面
+      this.currentApp = null; this.screen = 'desktop';
+    },
+    async loadAll() {
+      await this.loadChars(); await this.loadFriends(); await this.loadApiCfg();
+      await this.loadWbs(); await this.loadStories(); await this.loadMusic(); await this.loadSettings();
+      await this.refreshDiaryList();
+    },
+    async loadChars() {
+      try { this.characters = await getAllI('characters', 'accountId', this.accountId); for (const c of this.characters) if (c.avatarBlob) c.avatarUrl = URL.createObjectURL(c.avatarBlob); } catch (e) { this.characters = []; }
+    },
+    async loadFriends() {
+      try {
+        const fs = await getAllI('friends', 'accountId', this.accountId);
+        for (const f of fs) {
+          f.char = this.characters.find(x => x.id === f.charId);
+          f.displayName = f.remark || (f.char ? f.char.name : '未知');
+          if (f.char && f.char.avatarBlob) f.avatarUrl = URL.createObjectURL(f.char.avatarBlob);
+          if (f.chatBgBlob && !f.chatBgUrl) f.chatBgUrl = URL.createObjectURL(f.chatBgBlob);
+          f.notify = f.notify !== false; f.proactive = !!f.proactive;
+          f.proactiveMin = f.proactiveMin || 0; f.proactiveMax = f.proactiveMax || 0; f.proactiveNext = f.proactiveNext || 0;
+          const ms = await getAllI('messages', 'friendId', f.id);
+          ms.sort((a, b) => a.timestamp - b.timestamp);
+          const last = ms[ms.length - 1];
+          f.lastMsg = last ? (last.type === 'narratage' ? '[旁白] ' + clean(last.content) : clean(last.content)).slice(0, 24) : '暂无消息';
+          f.unread = ms.filter(m => m.role === 'char' && !m.read).length;
+        }
+        this.friends = fs;
+      } catch (e) { this.friends = []; }
+    },
+    async loadApiCfg() {
+      try {
+        this.apiConfigs = await getAllI('apiConfigs', 'accountId', this.accountId);
+        const s = await get('settings', this.accountId);
+        this.activeApiId = (s && s.activeApiId) || (this.apiConfigs[0] && this.apiConfigs[0].id) || '';
+      } catch (e) { this.apiConfigs = []; }
+    },
+    async loadWbs() { try { this.wbs = await getAllI('worldbooks', 'accountId', this.accountId); } catch (e) { this.wbs = []; } },
+    async loadStories() { try { this.stories = await getAllI('stories', 'accountId', this.accountId); this.stories.sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt)); } catch (e) { this.stories = []; } },
+    async loadMusic() { try { this.musicLinks = await getAllI('musicLinks', 'accountId', this.accountId); } catch (e) { this.musicLinks = []; } },
+    async loadSettings() {
+      try {
+        const s = await get('settings', this.accountId); if (!s) return;
+        if (s.desktopBgBlob) { this.desktopBackgroundBlob = s.desktopBgBlob; this.desktopBackgroundUrl = URL.createObjectURL(s.desktopBgBlob); }
+        this.desktopCss = s.desktopCss || ''; this.cssDraft = this.desktopCss;
+        this.desktopJs = s.desktopJs || ''; this.jsDraft = this.desktopJs;
+        this.globalNotify = !!s.globalNotify; this.notifyVibrate = s.notifyVibrate !== false; this.notifySound = !!s.notifySound; this.notifyDesktop = !!s.notifyDesktop;
+        this.notifyQuietStart = s.notifyQuietStart == null ? '' : s.notifyQuietStart; this.notifyQuietEnd = s.notifyQuietEnd == null ? '' : s.notifyQuietEnd;
+        this.globalProactive = !!s.globalProactive; this.globalProactiveMin = s.globalProactiveMin || 10; this.globalProactiveMax = s.globalProactiveMax || 1; this.globalProactiveCond = s.globalProactiveCond || 'unread';
+        this.diaryAuto = s.diaryAuto !== false; this.diaryAutoRate = s.diaryAutoRate == null ? 40 : s.diaryAutoRate;
+        this.narratageEnabled = s.narratageEnabled !== false;
+        if (s.listenMusicId) {
+          this.listen = Object.assign(this.listen, { musicId: s.listenMusicId, friendId: s.listenFriendId || '', active: !!s.listenActive, rate: s.listenRate == null ? 40 : s.listenRate, lastSangAt: 0, busy: false, tip: '' });
+        }
+        this.applyCss();
+        if (this.desktopJs) this.runJs();
+        this.startProactiveLoop();
+      } catch (e) {}
+    },
+    activeApi() { return this.apiConfigs.find(c => c.id === this.activeApiId) || this.apiConfigs[0] || null; },
+    async saveSettings() {
+      if (!this.account) return;
+      await put('settings', {
+        accountId: this.accountId, activeApiId: this.activeApiId,
+        desktopBgBlob: this.desktopBackgroundBlob, desktopCss: this.desktopCss, desktopJs: this.desktopJs,
+        globalNotify: this.globalNotify, notifyVibrate: this.notifyVibrate, notifySound: this.notifySound, notifyDesktop: this.notifyDesktop,
+        notifyQuietStart: this.notifyQuietStart === '' ? null : Number(this.notifyQuietStart), notifyQuietEnd: this.notifyQuietEnd === '' ? null : Number(this.notifyQuietEnd),
+        globalProactive: this.globalProactive, globalProactiveMin: this.globalProactiveMin || 10, globalProactiveMax: this.globalProactiveMax || 1, globalProactiveCond: this.globalProactiveCond,
+        diaryAuto: this.diaryAuto, diaryAutoRate: this.diaryAutoRate || 0,
+        narratageEnabled: this.narratageEnabled,
+        listenMusicId: this.listen.musicId || '', listenFriendId: this.listen.friendId || '', listenActive: !!this.listen.active, listenRate: this.listen.rate || 0
+      });
+    },
+    applyFriendCss() {
+      const f = this.friend, sc = f ? '#chat-' + f.id : '';
+      if (this.chatStyleEl) this.chatStyleEl.textContent = sc ? scopeCss(f.chatCss || '', sc) : '';
+      if (this.bubbleStyleEl) this.bubbleStyleEl.textContent = sc ? scopeCss(f.bubbleCss || '', sc) : '';
+    },
+    async openFriend(f) { this.friend = f; await this.loadMsgs(); this.chatScreen = 'chat'; this.showDrawer = false; this.applyFriendCss(); },
+    async loadMsgs() {
+      if (!this.friend) return;
+      try {
+        const ms = await getAllI('messages', 'friendId', this.friend.id);
+        ms.sort((a, b) => a.timestamp - b.timestamp);
+        for (const m of ms) m.avatarUrl = m.role === 'user' ? this.account.avatarUrl : this.friend.avatarUrl;
+        this.messages = ms;
+        this.$nextTick(() => { const el = this.$refs.msgList; if (el) el.scrollTop = el.scrollHeight; });
+      } catch (e) {}
+    },
+    async nextTurn(fid) { const ms = await getAllI('messages', 'friendId', fid); return ms.length ? Math.max(...ms.map(m => m.turnIndex || 0)) + 1 : 1; },
+    async sendMsg() {
+      const text = this.msgInput.trim(); if (!text) return;
+      if (this.narrMode && text.length > 50) { alert('旁白不得超过 50 字'); return; }
+      let isNarr = this.narrMode;
+      let content = text;
+      // 旁白功能关闭时：把用户输入里的 <narratage> 标签剥离，按普通消息发送
+      if (isNarr && !this.narratageEnabled) {
+        content = text.replace(/^<narratage>|<\/narratage>$/gi, '').trim();
+        isNarr = false;
+      }
+      const fid = this.friend.id, ti = await this.nextTurn(fid);
+      await put('messages', { id: uid(), friendId: fid, accountId: this.accountId, role: 'user', content: isNarr ? '<narratage>' + content + '</narratage>' : content, type: isNarr ? 'narratage' : 'chat', timestamp: Date.now(), turnIndex: ti });
+      this.msgInput = ''; this.narrMode = false;
+      await this.loadMsgs(); this.schedule(fid);
+    },
+    schedule(fid) {
+      const p = this.pendings[fid]; if (p) clearTimeout(p.timer);
+      const delay = 3000 + Math.random() * 7000;
+      const timer = setTimeout(() => this.genReply(fid), delay);
+      this.pendings = { ...this.pendings, [fid]: { timer } };
+      this.typingMap = { ...this.typingMap, [fid]: true };
+    },
+    async genReply(fid) {
+      const f = await get('friends', fid); if (!f) { this.clearPend(fid); return; }
+      const ch = await get('characters', f.charId);
+      const cfg = this.activeApi();
+      let raw = '', err = '';
+      try {
+        if (cfg && cfg.baseUrl && cfg.apiKey && cfg.model) {
+          const ms = await getAllI('messages', 'friendId', fid);
+          ms.sort((a, b) => a.timestamp - b.timestamp);
+          let lastU = '';
+          for (let i = ms.length - 1; i >= 0; i--) if (ms[i].role === 'user' && ms[i].type === 'chat') { lastU = ms[i].content; break; }
+          const sys = buildSys(this.account, ch, this.wbs, lastU);
+          let i = 0;
+          const hist = ms.filter(m => m.type !== 'think').map(m => {
+            const isU = m.role === 'user'; const r = isU ? 'user' : 'assistant';
+            if (m.type === 'narratage') return { role: r, content: m.content };
+            i++;
+            const nm = isU ? '{user}' : (f.remark || (f.char && f.char.name) || '{char}');
+            return { role: r, content: '#' + i + nm + '：“' + m.content + '”' };
+          });
+          raw = await callAPI(cfg, [{ role: 'system', content: sys }, ...hist]);
+        } else {
+          err = !cfg ? '未配置 API' : !cfg.baseUrl ? 'API 缺少 Base URL' : !cfg.apiKey ? 'API 缺少 Key' : 'API 缺少模型名';
+          raw = '<think>自然回应。</think>\n\n你好呀，我在。\n\n<narratage>屏幕的光映在桌面上。</narratage>';
+        }
+      } catch (e) { err = String(e.message || e); raw = '<think>API 调用失败：' + err + '</think>\n\n'; }
+      const ti = await this.nextTurn(fid);
+      // 先整体剥离 <think>...</think>（思维链不进入聊天记录）
+      raw = String(raw || '').replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+      // 旁白功能关闭时：把所有 <narratage>...</narratage> 转成正文，角色不再输出旁白
+      if (!this.narratageEnabled) raw = raw.replace(/<narratage>([\s\S]*?)<\/narratage>/gi, (_, t) => t.trim() + '\n\n');
+      const parts = raw.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
+      for (let i = 0; i < parts.length; i++) {
+        const p = parts[i];
+        let type = 'chat';
+        if (p.startsWith('<narratage>')) type = 'narratage';
+        if (type === 'chat') lastText = p;
+        await put('messages', { id: uid(), friendId: fid, accountId: this.accountId, role: 'char', content: p, type, timestamp: Date.now() + i, turnIndex: ti });
+      }
+      if (err) await put('messages', { id: uid(), friendId: fid, accountId: this.accountId, role: 'char', content: '<narratage>⚠ ' + err.slice(0, 80) + '</narratage>', type: 'narratage', isError: true, timestamp: Date.now() + 999, turnIndex: ti });
+      this.clearPend(fid);
+      if (this.friend && this.friend.id === fid) await this.loadMsgs();
+      await this.loadFriends();
+      this.notifyNew(fid, lastText || '');
+      this.maybeAutoDiary(fid);
+      const ff = this.friends.find(x => x.id === fid); if (ff) ff.proactiveNext = now() + this.proactiveGap(ff); await put('friends', ff);
+    },
+    async maybeAutoDiary(fid) {
+      if (!this.diaryAuto) return;
+      if (Math.random() * 100 > this.diaryAutoRate) return;
+      const k = dayKey(now());
+      const have = await getByI('diaries', 'date', [fid, k]).catch(() => null); if (have) return;
+      const f = await get('friends', fid); if (!f) return;
+      const ch = await get('characters', f.charId); if (!ch) return;
+      const ms = await getAllI('messages', 'friendId', fid); ms.sort((a, b) => a.timestamp - b.timestamp);
+      const d = { friendId: fid, date: k, content: '', draft: true, createdAt: now() };
+      const id = await put('diaries', d); d.id = id;
+      this.genDiary(d).catch(() => {});
+    },
+    notifyNew(fid, text) {
+      const f = this.friends.find(x => x.id === fid); if (!f) return;
+      if (f.notify === false) return;
+      if (!this.globalNotify) return;
+      const h = new Date().getHours();
+      if (inQuiet(h, this.notifyQuietStart, this.notifyQuietEnd)) return;
+      const name = f.remark || (f.char && f.char.name) || '对方';
+      try {
+        if (this.notifyVibrate && navigator.vibrate) navigator.vibrate([120, 60, 120]);
+        if (this.notifySound) playDing();
+        if (this.notifyDesktop && 'Notification' in window) {
+          if (Notification.permission === 'granted') new Notification(name, { body: text || '发来一条新消息', icon: f.avatarUrl || undefined });
+          else if (Notification.permission !== 'denied') Notification.requestPermission();
+        }
+      } catch (e) {}
+    },
+    clearPend(fid) {
+      const p = this.pendings[fid]; if (p) clearTimeout(p.timer);
+      const np = { ...this.pendings }; delete np[fid]; this.pendings = np;
+      const nt = { ...this.typingMap }; delete nt[fid]; this.typingMap = nt;
+    },
+    lpStart(e, msg) {
+      this.lpCancel();
+      const x = e.touches ? e.touches[0].clientX : e.clientX, y = e.touches ? e.touches[0].clientY : e.clientY;
+      this.lpTimer = setTimeout(() => { this.cmenu = { show: true, msg, x: Math.min(x, window.innerWidth - 140), y: Math.min(y, window.innerHeight - 160) }; }, 520);
+    },
+    lpCancel() { if (this.lpTimer) { clearTimeout(this.lpTimer); this.lpTimer = null; } },
+    editMsg(m) { this.cmenu.show = false; this.editModal = { show: true, msg: m, content: m.content }; },
+    async saveEdit() {
+      const m = this.editModal.msg;
+      m.content = String(m.content || '').replace(/<think>[\s\S]*?<\/think>/gi, '').trim() || this.editModal.content;
+      if (m.content.startsWith('<narratage>')) m.type = 'narratage'; else m.type = 'chat';
+      await put('messages', m); this.editModal.show = false; await this.loadMsgs();
+    },
+    async delMsg(m) { this.cmenu.show = false; await del('messages', m.id); await this.loadMsgs(); },
+    async reReply(m) {
+      this.cmenu.show = false;
+      const turn = m.turnIndex || 0, fid = this.friend.id;
+      for (const x of this.messages.filter(x => (x.turnIndex || 0) >= turn)) await del('messages', x.id);
+      await this.loadMsgs(); this.schedule(fid);
+    },
+    async addFriend() {
+      const q = this.addFriendQuery.trim(); if (!q) return;
+      try {
+        const cs = await getAllI('characters', 'accountId', this.accountId);
+        const c = cs.find(x => x.contactId === q);
+        if (!c) { alert('未找到该通讯号'); return; }
+        if (this.friends.find(f => f.charId === c.id)) { alert('已经是好友'); return; }
+        const f = { id: uid(), accountId: this.accountId, charId: c.id, remark: '', chatCss: '', bubbleCss: '', chatBgBlob: null, createdAt: Date.now() };
+        await put('friends', f);
+        await put('messages', { id: uid(), friendId: f.id, accountId: this.accountId, role: 'char', content: (c.opening && c.opening.trim()) || '你好，我是' + c.name + '。', type: 'chat', timestamp: Date.now(), turnIndex: 1 });
+        this.addFriendQuery = ''; await this.loadFriends(); alert('添加成功');
+      } catch (e) { alert('失败：' + e.message); }
+    },
+    toggleCharWb(id) {
+      const arr = this.charForm.worldbookIds || [];
+      const i = arr.indexOf(id);
+      if (i >= 0) arr.splice(i, 1); else arr.push(id);
+      this.charForm.worldbookIds = arr.slice();
+    },
+    toggleStoryWb(id) {
+      const arr = this.storyForm.worldbookIds || [];
+      const i = arr.indexOf(id);
+      if (i >= 0) arr.splice(i, 1); else arr.push(id);
+      this.storyForm.worldbookIds = arr.slice();
+    },
+    async createChar() {
+      const f = this.charForm;
+      if (!f.name.trim() || !f.persona.trim()) { alert('姓名与人设为必填'); return; }
+      try {
+        const cid = 'C' + Math.random().toString(36).slice(2, 8).toUpperCase();
+        await put('characters', { id: uid(), accountId: this.accountId, contactId: cid, name: f.name.trim(), gender: f.gender.trim(), persona: f.persona.trim(), opening: f.opening.trim(), avatarBlob: f.avatarBlob, worldbookIds: (f.worldbookIds || []).slice(), createdAt: Date.now() });
+        this.showChar = false;
+        this.charForm = { name: '', gender: '', persona: '', opening: '', avatarBlob: null, avatarUrl: '', worldbookIds: [] };
+        await this.loadChars(); await this.loadFriends();
+        alert('角色已创建，通讯号：' + cid);
+      } catch (e) { alert('失败：' + e.message); }
+    },
+    openFriendSettings() {
+      const f = this.friend;
+      this.fs = {
+        show: true, remark: f.remark || '',
+        notify: f.notify !== false, proactive: !!f.proactive,
+        proactiveMin: f.proactiveMin || 0, proactiveMax: f.proactiveMax || 0
+      };
+    },
+    async saveFs() {
+      const f = this.friend;
+      f.notify = this.fs.notify; f.proactive = this.fs.proactive;
+      f.proactiveMin = Number(this.fs.proactiveMin) || 0; f.proactiveMax = Number(this.fs.proactiveMax) || 0;
+      f.proactiveNext = now() + this.proactiveGap(f);
+      await put('friends', f);
+      await this.loadFriends();
+    },
+    async saveRemark() {
+      this.friend.remark = this.fs.remark.trim();
+      await put('friends', this.friend);
+      this.fs.show = false; await this.loadFriends(); this.applyFriendCss();
+    },
+    openBeautify() {
+      const f = this.friend;
+      this.be = { show: true, chatCss: f.chatCss || '', bubbleCss: f.bubbleCss || '', bgBlob: f.chatBgBlob || null, bgUrl: f.chatBgUrl || '' };
+    },
+    async pickBeBg(e) {
+      const file = e.target.files[0]; if (!file) return;
+      const b = new Blob([await file.arrayBuffer()], { type: file.type });
+      if (this.be.bgUrl) URL.revokeObjectURL(this.be.bgUrl);
+      this.be.bgBlob = b; this.be.bgUrl = URL.createObjectURL(b); e.target.value = '';
+    },
+    clearBeBg() { if (this.be.bgUrl) URL.revokeObjectURL(this.be.bgUrl); this.be.bgBlob = null; this.be.bgUrl = ''; },
+    async saveBe() {
+      const f = this.friend;
+      if (f.chatBgUrl && f.chatBgUrl !== this.be.bgUrl) URL.revokeObjectURL(f.chatBgUrl);
+      f.chatCss = this.be.chatCss; f.bubbleCss = this.be.bubbleCss;
+      f.chatBgBlob = this.be.bgBlob; f.chatBgUrl = this.be.bgUrl;
+      await put('friends', f);
+      this.be.show = false; this.fs.show = false;
+      await this.loadFriends();
+      const u = this.friends.find(x => x.id === f.id); if (u) { this.friend = u; this.applyFriendCss(); }
+    },
+    openNewStory() {
+      this.storyForm = { id: '', title: '', description: '', setting: '', opening: '', worldbookIds: [] };
+      this.storySaveTip = ''; this.showStory = true;
+    },
+    editStory(s) {
+      this.storyForm = { id: s.id, title: s.title || '', description: s.description || '', setting: s.setting || '', opening: s.opening || '', worldbookIds: (s.worldbookIds || []).slice() };
+      this.storySaveTip = ''; this.showStory = true;
+    },
+    closeStoryModal() {
+      this.storySaveTip = ''; this.showStory = false;
+    },
+    async saveStory() {
+      const f = this.storyForm;
+      if (!f.title.trim() || !f.setting.trim()) { this.storySaveTip = '⚠ 标题和场景设定为必填'; this.storySaveTipOk = false; return; }
+      try {
+        if (f.id) {
+          const s = this.stories.find(x => x.id === f.id);
+          if (!s) throw new Error('找不到该剧情');
+          s.title = f.title.trim(); s.description = f.description.trim(); s.setting = f.setting.trim(); s.opening = f.opening.trim();
+          s.worldbookIds = (f.worldbookIds || []).slice(); s.updatedAt = Date.now();
+          await put('stories', s);
+          if (this.curStory && this.curStory.id === f.id) this.curStory = JSON.parse(JSON.stringify(s));
+        } else {
+          await put('stories', { id: uid(), accountId: this.accountId, title: f.title.trim(), description: f.description.trim(), setting: f.setting.trim(), opening: f.opening.trim(), worldbookIds: (f.worldbookIds || []).slice(), createdAt: Date.now(), updatedAt: Date.now() });
+        }
+        this.storySaveTip = ''; this.showStory = false;
+        await this.loadStories();
+      } catch (e) {
+        this.storySaveTip = '⚠ 保存失败：' + (e.message || e); this.storySaveTipOk = false;
+      }
+    },
+    async openStory(s) {
+      this.curStory = s;
+      try { const ms = await getAllI('storyMessages', 'storyId', s.id); ms.sort((a, b) => a.timestamp - b.timestamp); this.storyMsgs = ms; } catch (e) { this.storyMsgs = []; }
+      this.storyScreen = 'chat'; this.storyInput = '';
+      this.$nextTick(() => { const el = this.$refs.storyList; if (el) el.scrollTop = el.scrollHeight; });
+    },
+    async delStory(s) {
+      if (!confirm('删除这个剧情？相关对话记录会一并删除。')) return;
+      try {
+        for (const m of await getAllI('storyMessages', 'storyId', s.id)) await del('storyMessages', m.id);
+        await del('stories', s.id);
+        this.curStory = null; this.storyScreen = 'list'; await this.loadStories();
+      } catch (e) { alert('删除失败：' + e.message); }
+    },
+    async sendStory() {
+      const text = this.storyInput.trim(); if (!text || !this.curStory) return;
+      const st = this.curStory;
+      const um = { id: uid(), storyId: st.id, accountId: this.accountId, role: 'user', content: text, timestamp: Date.now() };
+      await put('storyMessages', um);
+      this.storyInput = ''; this.storyMsgs = [...this.storyMsgs, um];
+      this.$nextTick(() => { const el = this.$refs.storyList; if (el) el.scrollTop = el.scrollHeight; });
+      const cfg = this.activeApi();
+      if (!cfg || !cfg.baseUrl || !cfg.apiKey || !cfg.model) {
+        const am = { id: uid(), storyId: st.id, accountId: this.accountId, role: 'assistant', content: '⚠ 未配置 API。', timestamp: Date.now() };
+        await put('storyMessages', am); this.storyMsgs = [...this.storyMsgs, am]; return;
+      }
+      this.storyTyping = true;
+      try {
+        const msgs = [{ role: 'system', content: buildStorySys(st, this.wbs) }, ...this.storyMsgs.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content }))];
+        const reply = await callAPI(cfg, msgs);
+        const cleaned = String(reply || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+        const am = { id: uid(), storyId: st.id, accountId: this.accountId, role: 'assistant', content: cleaned || '（无回复）', timestamp: Date.now() };
+        await put('storyMessages', am); this.storyMsgs = [...this.storyMsgs, am];
+        st.updatedAt = Date.now(); await put('stories', st);
+      } catch (e) {
+        const am = { id: uid(), storyId: st.id, accountId: this.accountId, role: 'assistant', content: '⚠ ' + (e.message || e), timestamp: Date.now() };
+        await put('storyMessages', am); this.storyMsgs = [...this.storyMsgs, am];
+      }
+      this.storyTyping = false;
+      this.$nextTick(() => { const el = this.$refs.storyList; if (el) el.scrollTop = el.scrollHeight; });
+    },
+    wbBack() {
+      if (this.wbDirty) {
+        if (!confirm('当前世界书有未保存的修改，确定离开吗？')) return;
+      }
+      if (this.wbScreen === 'list') this.closeApp(); else this.wbScreen = 'list';
+    },
+    async newWb() { const wb = { id: uid(), accountId: this.accountId, name: '新世界书', description: '', entries: [], createdAt: Date.now(), updatedAt: Date.now() }; await put('worldbooks', wb); await this.loadWbs(); this.openWb(wb); },
+    openWb(wb) { this.curWb = JSON.parse(JSON.stringify(wb)); this.wbScreen = 'detail'; this.wbDirty = false; this.wbSaveTip = ''; },
+    markDirty() { this.wbDirty = true; this.wbSaveTip = ''; },
+    async saveWb() {
+      if (!this.curWb) return;
+      if (!this.curWb.name || !this.curWb.name.trim()) { this.wbSaveTip = '⚠ 世界书名不能为空'; this.wbSaveTipOk = false; return; }
+      try {
+        this.curWb.name = this.curWb.name.trim();
+        this.curWb.description = (this.curWb.description || '').trim();
+        this.curWb.updatedAt = Date.now();
+        await put('worldbooks', this.curWb);
+        await this.loadWbs();
+        // 重新同步 curWb（保留 id 对应的最新数据，含其他字段）
+        const fresh = this.wbs.find(w => w.id === this.curWb.id);
+        if (fresh) this.curWb = JSON.parse(JSON.stringify(fresh));
+        this.wbDirty = false;
+        this.wbSaveTip = '✓ 已保存 ' + new Date().toLocaleTimeString();
+        this.wbSaveTipOk = true;
+        setTimeout(() => { if (this.wbSaveTipOk) this.wbSaveTip = ''; }, 2000);
+      } catch (e) {
+        this.wbSaveTip = '⚠ 保存失败：' + (e.message || e);
+        this.wbSaveTipOk = false;
+      }
+    },
+    async delWb() { if (!confirm('删除这个世界书？')) return; try { await del('worldbooks', this.curWb.id); this.curWb = null; this.wbScreen = 'list'; await this.loadWbs(); } catch (e) { alert('删除失败：' + e.message); } },
+    newWbEntry() { this.wbModal = { show: true, form: { id: '', content: '', position: 'before', trigger: 'always', keywordsText: '', probability: 0.5 } }; },
+    editWbEntry(en) { this.wbModal = { show: true, form: { id: en.id, content: en.content, position: en.position, trigger: en.trigger, keywordsText: (en.keywords || []).join('，'), probability: en.probability == null ? 0.5 : en.probability } }; },
+    async saveWbEntry() {
+      const f = this.wbModal.form;
+      if (!f.content.trim()) { alert('内容不能为空'); return; }
+      if (!this.curWb.entries) this.curWb.entries = [];
+      const kws = (f.keywordsText || '').split(/[,，]/).map(s => s.trim()).filter(Boolean);
+      if (f.id) {
+        const i = this.curWb.entries.findIndex(e => e.id === f.id);
+        if (i >= 0) Object.assign(this.curWb.entries[i], { content: f.content.trim(), position: f.position, trigger: f.trigger, keywords: kws, probability: f.probability });
+      } else {
+        this.curWb.entries.push({ id: uid(), content: f.content.trim(), position: f.position, trigger: f.trigger, keywords: kws, probability: f.probability, enabled: true });
+      }
+      this.wbModal.show = false; this.wbDirty = true; await this.saveWb();
+    },
+    async delWbEntry(en) { if (!confirm('删除这个条目？')) return; this.curWb.entries = this.curWb.entries.filter(e => e.id !== en.id); this.wbDirty = true; await this.saveWb(); },
+    parseMusic(url) {
+      const s = String(url || '').trim();
+      let m = s.match(/song\?id=(\d+)/); if (m) return { type: 'song', id: m[1] };
+      m = s.match(/playlist\?id=(\d+)/); if (m) return { type: 'playlist', id: m[1] };
+      m = s.match(/[?&]id=(\d+)/); if (m) return { type: 'song', id: m[1] };
+      return null;
+    },
+    async addMusic() {
+      const url = this.musicLink.trim(); if (!url) return;
+      const p = this.parseMusic(url);
+      if (!p) { alert('无法解析。请使用 music.163.com/song?id=xxx 或 playlist?id=xxx'); return; }
+      const m = { id: uid(), accountId: this.accountId, type: p.type, resourceId: p.id, originalUrl: url, createdAt: Date.now() };
+      await put('musicLinks', m); this.musicLink = ''; await this.loadMusic(); this.curMusicId = m.id;
+    },
+    async delMusic(m) { if (!confirm('删除？')) return; await del('musicLinks', m.id); if (this.curMusicId === m.id) this.curMusicId = ''; if (this.listen.musicId === m.id) { this.listen.musicId = ''; await this.saveListen(); } await this.loadMusic(); },
+    startListen() {
+      this.listen.tip = ''; this.listenTipOk = true;
+      if (!this.listen.musicId) { this.listen.tip = '⚠ 请先添加歌曲，并选择要一起听的那首'; this.listenTipOk = false; return; }
+      if (!this.listen.friendId) { this.listen.tip = '⚠ 请先选择要一起听的角色（好友）'; this.listenTipOk = false; return; }
+      this.listen.active = true; this.listen.lastSangAt = 0;
+      this.saveListen();
+      this.maybeListenSay(true);
+      this.listen.tip = '✓ 已开启一起听';
+      setTimeout(() => { if (this.listen.tip.indexOf('已开启') >= 0) this.listen.tip = ''; }, 2000);
+    },
+    stopListen() {
+      this.listen.active = false; this.listen.tip = ''; this.saveListen();
+    },
+    onListenMusicChange() {
+      this.listen.lastSangAt = 0;
+      this.saveListen();
+      if (this.listen.active) this.maybeListenSay(true);
+    },
+    async saveListen() {
+      this.listenTipOk = true;
+      try { await this.saveSettings(); }
+      catch (e) { this.listen.tip = '⚠ 保存失败'; this.listenTipOk = false; }
+    },
+    buildListenPrompt(ch, songName) {
+      return '你是「' + (ch.name || '角色') + '」。你正在和用户一起听歌，当前播放的是《' + (songName || '这首歌') + '》。\n请写一段你的即时反应：可以是对这首歌的评论、想起的某段往事、被歌词戳中的心情，或对用户说的一句与这首歌有关的话。\n\n【要求】\n1. 只输出这一段，不要旁白、不要标签\n2. 中文，60-140 字，口语化，符合你的人设\n3. 不要复述歌词，不要写成乐评，要有真实情绪和个人关联\n4. 严禁代替用户发言';
+    },
+    async maybeListenSay(force) {
+      if (!this.listen.active) return;
+      const f = this.listenFriend; const ch = this.listenChar;
+      if (!f || !ch) return;
+      if (!force) {
+        if (Math.random() * 100 > this.listen.rate) return;
+      }
+      this.listenSay();
+    },
+    async listenSay() {
+      const f = this.listenFriend; const ch = this.listenChar;
+      if (!f || !ch || !this.listen.active) return;
+      const cfg = this.activeApi();
+      this.listen.busy = true;
+      let content = '';
+      try {
+        if (cfg && cfg.baseUrl && cfg.apiKey && cfg.model) {
+          const songName = this.listenSongName();
+          content = (await callAPI(cfg, [{ role: 'system', content: this.buildListenPrompt(ch, songName) }])).trim();
+        } else {
+          content = (ch.name || 'Ta') + '安静地听着这首歌，忽然开口：「这首歌让我想起一些事。」';
+        }
+        content = clean(content).slice(0, 500);
+        const ti = await this.nextTurn(f.id);
+        await put('messages', { id: uid(), friendId: f.id, accountId: this.accountId, role: 'char', content: content, type: 'chat', timestamp: now(), turnIndex: ti });
+        this.listen.lastSangAt = now();
+        if (this.friend && this.friend.id === f.id) await this.loadMsgs();
+        await this.loadFriends();
+        this.notifyNew(f.id, content);
+      } catch (e) {
+        this.listen.tip = '⚠ 生成失败：' + e.message; this.listenTipOk = false;
+      }
+      this.listen.busy = false;
+    },
+    saySomething() { this.listenSay(); },
+    async pickDesktopBg(e) {
+      const file = e.target.files[0]; if (!file) return;
+      const b = new Blob([await file.arrayBuffer()], { type: file.type });
+      if (this.desktopBackgroundUrl) URL.revokeObjectURL(this.desktopBackgroundUrl);
+      this.desktopBackgroundBlob = b; this.desktopBackgroundUrl = URL.createObjectURL(b);
+      e.target.value = ''; await this.saveSettings();
+    },
+    async clearDesktopBg() {
+      if (this.desktopBackgroundUrl) URL.revokeObjectURL(this.desktopBackgroundUrl);
+      this.desktopBackgroundBlob = null; this.desktopBackgroundUrl = '';
+      await this.saveSettings();
+    },
+    applyCss() { if (this.desktopCssEl) this.desktopCssEl.textContent = this.desktopCss ? scopeCss(this.desktopCss, '.desktop') : ''; },
+    async saveCss() { this.desktopCss = this.cssDraft; this.applyCss(); await this.saveSettings(); alert('已应用'); },
+    runJs() { if (!this.desktopJs) return; try { new Function(this.desktopJs)(); } catch (e) { console.error(e); } },
+    async saveJs() { this.desktopJs = this.jsDraft; this.runJs(); await this.saveSettings(); alert('已执行'); },
+    async saveGlobalBe() { await this.saveSettings(); this.proactiveTip = '✓ 全局设置已保存'; setTimeout(() => this.proactiveTip = '', 2000); this.startProactiveLoop(); },
+    toggleNotifyStyle(k) {
+      if (k === 'vibrate') this.notifyVibrate = !this.notifyVibrate;
+      else if (k === 'sound') this.notifySound = !this.notifySound;
+      else if (k === 'desktop') this.notifyDesktop = !this.notifyDesktop;
+      this.saveGlobalBe();
+    },
+    setProactiveCond(v) { this.globalProactiveCond = v; this.saveGlobalBe(); },
+    async testNotify() {
+      this.notifyTip = ''; this.notifyTipOk = true;
+      try {
+        if (this.notifyVibrate && navigator.vibrate) navigator.vibrate([120, 60, 120]);
+        if (this.notifySound) playDing();
+        if (this.notifyDesktop && 'Notification' in window) {
+          if (Notification.permission === 'granted') new Notification('牙娅的小家', { body: '这是一条测试提醒' });
+          else if (Notification.permission !== 'denied') { const r = await Notification.requestPermission(); if (r === 'granted') new Notification('牙娅的小家', { body: '这是一条测试提醒' }); }
+        }
+        this.notifyTip = '✓ 已触发测试提醒';
+      } catch (e) { this.notifyTip = '⚠ 触发失败：' + e.message; this.notifyTipOk = false; }
+    },
+    async refreshDiaryList() {
+      try {
+        const all = await getAll('diaries');
+        const map = {};
+        all.forEach(d => { (map[d.friendId] = map[d.friendId] || []).push(d); });
+        const out = [];
+        for (const fid of Object.keys(map)) {
+          const f = this.friends.find(x => x.id === fid) || await get('friends', fid);
+          const ch = f && f.charId ? (this.characters.find(x => x.id === f.charId) || await get('characters', f.charId)) : null;
+          const list = map[fid].slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+          out.push({ friendId: fid, name: (f && f.remark) || (ch && ch.name) || '未知', avatarUrl: ch && ch.avatarUrl, count: list.length, latest: list[0] && list[0].content ? clean(list[0].content).slice(0, 30) : '' });
+        }
+        this.diaryList = out.sort((a, b) => b.count - a.count);
+      } catch (e) { this.diaryList = []; }
+    },
+    openDiaryByFriend(fid, name) {
+      this.beScreen = 'main';
+      const f = this.friends.find(x => x.id === fid); if (!f) return;
+      this.diary = { show: true, friendId: fid, friendName: name, entries: [], busy: false };
+      this.loadDiaryEntries(fid);
+    },
+    openDiaryView(fid) {
+      const f = this.friends.find(x => x.id === fid); if (!f) return;
+      const ch = f.char || null;
+      this.diaryView = {
+        friendId: fid, name: (f.remark || (ch && ch.name) || '未知'), entries: [], busy: false
+      };
+      this.diaryScreen = 'view';
+      this.loadDiaryViewEntries(fid);
+    },
+    async loadDiaryViewEntries(fid) {
+      try {
+        const list = await getAllI('diaries', 'friendId', fid);
+        list.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        this.diaryView.entries = list.map(d => ({ date: d.date, content: d.content || '' }));
+      } catch (e) { this.diaryView.entries = []; }
+    },
+    async genDiaryForView() {
+      const fid = this.diaryView.friendId; if (!fid) return;
+      const f = await get('friends', fid); if (!f) return;
+      const ch = await get('characters', f.charId); if (!ch) return;
+      const cfg = this.activeApi();
+      const ms = await getAllI('messages', 'friendId', fid); ms.sort((a, b) => a.timestamp - b.timestamp);
+      const last = (await getAllI('diaries', 'friendId', fid)).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
+      this.diaryView.busy = true;
+      try {
+        let text = '';
+        if (cfg && cfg.baseUrl && cfg.apiKey && cfg.model) {
+          text = (await callAPI(cfg, [{ role: 'system', content: buildDiaryPrompt(this.account, ch, ms, last ? last.content : '') }])).trim();
+        } else {
+          text = (ch.name || 'Ta') + '今天想了很多。和' + (this.account.nickname || '你') + '的对话又浮上来，有些话当时没说出口，现在在脑子里一遍遍重放。';
+        }
+        const k = dayKey(now());
+        const exist = await getByI('diaries', 'date', [fid, k]).catch(() => null);
+        const rec = exist || { id: uid(), friendId: fid, date: k, content: '', draft: false, createdAt: now() };
+        rec.content = text; rec.draft = false; rec.updatedAt = now();
+        const id = await put('diaries', rec); if (!exist) rec.id = id;
+        await this.loadDiaryViewEntries(fid); await this.refreshDiaryList();
+      } catch (e) { alert('日记生成失败：' + e.message); }
+      finally { this.diaryView.busy = false; }
+    },
+    fmtDateStr(s) {
+      if (!s) return '';
+      const p = String(s).split('-');
+      if (p.length === 3) return (Number(p[0]) % 100 || Number(p[0])) + ' 年 ' + Number(p[1]) + ' 月 ' + Number(p[2]) + ' 日';
+      return s;
+    },
+    async loadDiaryEntries(fid) {
+      try {
+        const list = await getAllI('diaries', 'friendId', fid);
+        list.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        this.diary.entries = list.map(d => ({ date: d.date, content: d.content || '', draft: !d.content }));
+      } catch (e) { this.diary.entries = []; }
+    },
+    async openDiary() {
+      const f = this.friend; if (!f) return;
+      this.diary = { show: true, friendId: f.id, friendName: f.remark || (f.char && f.char.name) || '未知', entries: [], busy: false };
+      await this.loadDiaryEntries(f.id);
+    },
+    closeDiary() { this.diary.show = false; this.refreshDiaryList(); },
+    proactiveGap(f) {
+      const g = (f && f.proactiveMin > 0) ? f.proactiveMin : this.globalProactiveMin || 10;
+      const jitter = 0.7 + Math.random() * 0.6; return Math.max(60, g * 60 * 1000) * jitter;
+    },
+    startProactiveLoop() {
+      if (this._proTimer) clearInterval(this._proTimer);
+      this._proTimer = setInterval(() => this.proactiveTick(), 60000);
+      setTimeout(() => this.proactiveTick(), 8000);
+    },
+    async proactiveTick() {
+      if (!this.globalProactive && !this.friends.some(f => f.proactive)) return;
+      for (const f of this.friends) {
+        const enabled = f.proactive || this.globalProactive;
+        if (!enabled) continue;
+        if (this.globalProactiveCond !== 'always' && !this._proShould(f)) continue;
+        const next = f.proactiveNext || 0;
+        if (now() < next) continue;
+        f.proactiveNext = now() + this.proactiveGap(f);
+        await put('friends', f);
+        const max = (f.proactiveMax > 0 ? f.proactiveMax : this.globalProactiveMax) || 1;
+        for (let i = 0; i < max; i++) await this.proactiveOne(f.id);
+      }
+    },
+    _proShould(f) {
+      if (this.globalProactiveCond === 'unread') return (f.unread || 0) > 0;
+      if (this.globalProactiveCond === 'idle') {
+        const last = (f.lastMsgTs && f.lastMsgTs.role === 'user') ? f.lastMsgTs : null;
+        return !last || (now() - last.timestamp) > (this.globalProactiveMin * 60 * 1000);
+      }
+      return true;
+    },
+    async proactiveOne(fid) {
+      const f = await get('friends', fid); if (!f) return;
+      const ch = await get('characters', f.charId); if (!ch) return;
+      const cfg = this.activeApi();
+      const ms = await getAllI('messages', 'friendId', fid); ms.sort((a, b) => a.timestamp - b.timestamp);
+      const lastChar = ms.filter(m => m.role === 'char' && m.type === 'chat').slice(-1)[0];
+      const ti = await this.nextTurn(fid);
+      let content = '';
+      try {
+        if (cfg && cfg.baseUrl && cfg.apiKey && cfg.model) {
+          const sys = buildSys(this.account, ch, this.wbs, '');
+          const hist = ms.filter(m => m.type !== 'think').slice(-12).map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content }));
+          const prompt = hist.concat([{ role: 'user', content: buildProactivePrompt(this.account, ch, ms, lastChar ? clean(lastChar.content) : '') }]);
+          content = (await callAPI(cfg, [{ role: 'system', content: sys }, ...prompt])).trim();
+        } else { content = (ch.name || 'Ta') + '突然想起一件事，发了条消息过来。'; }
+      } catch (e) { content = '…（主动消息生成失败）'; }
+      content = clean(content).slice(0, 500);
+      await put('messages', { id: uid(), friendId: fid, accountId: this.accountId, role: 'char', content: content || '…', type: 'chat', timestamp: now(), turnIndex: ti });
+      this.notifyNew(fid, content);
+      if (this.friend && this.friend.id === fid) await this.loadMsgs();
+      await this.loadFriends();
+    },
+    async genDiary(d) {
+      const fid = this.diary.friendId; if (!fid) return;
+      const f = await get('friends', fid); if (!f) return;
+      const ch = await get('characters', f.charId); if (!ch) return;
+      const cfg = this.activeApi();
+      const ms = await getAllI('messages', 'friendId', fid); ms.sort((a, b) => a.timestamp - b.timestamp);
+      const last = (await getAllI('diaries', 'friendId', fid)).sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
+      this.diary.busy = true;
+      try {
+        let text = '';
+        if (cfg && cfg.baseUrl && cfg.apiKey && cfg.model) {
+          text = (await callAPI(cfg, [{ role: 'system', content: buildDiaryPrompt(this.account, ch, ms, last ? last.content : '') }])).trim();
+        } else {
+          text = (ch.name || 'Ta') + '今天想了很多。和' + (this.account.nickname || '你') + '的对话又浮上来，有些话当时没说出口，现在在脑子里一遍遍重放。';
+        }
+        const k = (d && d.date) || dayKey(now());
+        const exist = await getByI('diaries', 'date', [fid, k]).catch(() => null);
+        const rec = exist || { id: uid(), friendId: fid, date: k, content: '', draft: false, createdAt: now() };
+        rec.content = text; rec.draft = false; rec.updatedAt = now();
+        const id = await put('diaries', rec); if (!exist) rec.id = id;
+        await this.loadDiaryEntries(fid); await this.refreshDiaryList();
+      } catch (e) { alert('日记生成失败：' + e.message); }
+      finally { this.diary.busy = false; }
+    },
+    newApi() {
+      this.apiModal.form = { id: '', name: '', protocol: 'openai', baseUrl: 'https://api.openai.com', apiKey: '', model: '', temperature: 1, maxTokens: 2048 };
+      this.apiModal.models = []; this.apiModal.result = ''; this.apiModal.filter = ''; this.apiModal.show = true;
+    },
+    editApi(cfg) { this.apiModal.form = { ...cfg }; this.apiModal.models = []; this.apiModal.result = ''; this.apiModal.filter = ''; this.apiModal.show = true; },
+    async saveApi() {
+      const f = this.apiModal.form;
+      if (!f.name.trim() || !f.baseUrl.trim() || !f.model.trim()) { alert('配置名、Base URL、模型为必填'); return; }
+      const rec = { id: f.id || uid(), accountId: this.accountId, name: f.name.trim(), protocol: f.protocol, baseUrl: f.baseUrl.trim(), apiKey: f.apiKey, model: f.model.trim(), temperature: Number(f.temperature) || 1, maxTokens: Number(f.maxTokens) || 2048, updatedAt: Date.now() };
+      await put('apiConfigs', rec);
+      this.apiModal.show = false; await this.loadApiCfg();
+      if (!this.activeApiId) { this.activeApiId = rec.id; await this.saveSettings(); }
+    },
+    async delApi(cfg) { if (!confirm('删除？')) return; await del('apiConfigs', cfg.id); if (this.activeApiId === cfg.id) this.activeApiId = ''; await this.loadApiCfg(); },
+    async setActive(cfg) { this.activeApiId = cfg.id; await this.saveSettings(); },
+    async pullModels() {
+      const f = this.apiModal.form;
+      if (!f.baseUrl) { alert('请先填 Base URL'); return; }
+      this.apiModal.pulling = true; this.apiModal.result = '';
+      try {
+        const base = f.baseUrl.replace(/\/+$/, '');
+        const isC = f.protocol === 'claude';
+        const urls = [base + '/v1/models', base + '/models', base + '/api/tags'];
+        let list = null, last = null;
+        for (const u of urls) {
+          try {
+            const h = { 'Content-Type': 'application/json' };
+            if (isC) { h['x-api-key'] = f.apiKey || ''; h['anthropic-version'] = '2023-06-01'; h['anthropic-dangerous-direct-browser-access'] = 'true'; }
+            else h['Authorization'] = 'Bearer ' + (f.apiKey || '');
+            const r = await fetch(u, { headers: h });
+            if (!r.ok) { last = new Error(r.status + ' ' + r.statusText); continue; }
+            const d = await r.json();
+            let arr = [];
+            if (Array.isArray(d)) arr = d; else if (Array.isArray(d.data)) arr = d.data; else if (d.data && Array.isArray(d.data.models)) arr = d.data.models; else if (Array.isArray(d.models)) arr = d.models;
+            const seen = {}, out = [];
+            for (const it of arr) {
+              let id = typeof it === 'string' ? it : (it && (it.id || it.name || it.model || it.model_name)) || '';
+              if (typeof id === 'string' && id.startsWith('models/')) id = id.slice(7);
+              if (id && !seen[id]) { seen[id] = 1; out.push(id); }
+            }
+            out.sort();
+            if (out.length) { list = out; break; }
+          } catch (e) { last = e; }
+        }
+        if (!list) throw last || new Error('未能拉取模型列表');
+        this.apiModal.models = list; this.apiModal.filter = '';
+      } catch (e) {
+        let m = e.message || String(e);
+        if (/Failed to fetch|NetworkError|CORS|Load failed/i.test(m)) m = '请求被 CORS 拦截';
+        else if (/401|403/.test(m)) m = '鉴权失败，检查 API Key';
+        else if (/404/.test(m)) m = '接口地址不对';
+        alert('拉取失败：' + m);
+      }
+      this.apiModal.pulling = false;
+    },
+    async testApi() {
+      const f = this.apiModal.form;
+      if (!f.baseUrl || !f.apiKey || !f.model) { alert('请先填 Base URL、Key、模型'); return; }
+      this.apiModal.testing = true; this.apiModal.result = '';
+      try {
+        const text = await callAPI({ ...f, temperature: 0.5, maxTokens: 64 }, [{ role: 'system', content: '回答一句话' }, { role: 'user', content: '请回复：连接成功' }]);
+        this.apiModal.ok = true; this.apiModal.result = '成功：' + (text || '').slice(0, 80);
+      } catch (e) { this.apiModal.ok = false; this.apiModal.result = '失败：' + (e.message || e); }
+      this.apiModal.testing = false;
+    },
+    async countData() {
+      this.counts = {
+        accounts: await cnt('accounts'), characters: await cnt('characters'),
+        friends: await cnt('friends'), messages: await cnt('messages'),
+        worldbooks: await cnt('worldbooks'), stories: await cnt('stories'),
+        storyMessages: await cnt('storyMessages'),
+        musicLinks: await cnt('musicLinks'), apiConfigs: await cnt('apiConfigs')
+      };
+    },
+    dataSizeText(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n > 1024 ? (n / 1024).toFixed(1) + ' KB' : n + ' B'; },
+    async exportData() {
+      try {
+        const data = await pack();
+        const json = JSON.stringify(data);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = '牙娅的小家数据备份_' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.json';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 3000);
+      } catch (e) { alert('导出失败：' + e.message); }
+    },
+    async importData(e) {
+      const f = e.target.files && e.target.files[0]; this.importMsg = ''; this.importOk = true;
+      if (!f) return;
+      try {
+        const text = await f.text();
+        const data = JSON.parse(text);
+        if (!confirm('导入会覆盖当前全部数据，确定继续？')) { e.target.value = ''; return; }
+        await unpack(data);
+        this.importMsg = '✓ 导入成功，正在重新加载…';
+        this.importOk = true;
+        await this.bootstrap();
+        this.importMsg = '✓ 导入完成并已加载';
+      } catch (err) {
+        this.importOk = false;
+        this.importMsg = '⚠ 导入失败：' + (err.message || err);
+      } finally { e.target.value = ''; }
+    },
+    async clearAll() {
+      if (!confirm('确定清空全部数据？此操作不可撤销！')) return;
+      for (const s of STORES) await clearStore(s);
+      this.importMsg = '✓ 已清空，正在重置…';
+      await this.bootstrap();
+    }
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
