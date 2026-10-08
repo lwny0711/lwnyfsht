@@ -867,7 +867,7 @@ textarea.code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
       <label class="upload-box">
         <img v-if="charForm.avatarUrl" :src="charForm.avatarUrl" />
         <svg v-else class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-        <input type="file" accept="image/*" @change="pickFile($event, charForm)" />
+        <input type="file" accept="image/*" @change="pickFile($event, charForm, () => { this.saveCharAvatar && this.saveCharAvatar(); })" />
       </label>
       <div class="tiny muted" style="margin-left:8px;">点击更换头像</div>
     </div>
@@ -1090,7 +1090,10 @@ textarea.code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script>
 const { createApp } = Vue;
-const DB = 'mini_phone_db', DVER = 7;
+const DB = 'mini_phone_db', DVER = 8;
+// 若因旧版本升级残留导致表结构损坏（表现为创建/保存时报“角色不存在”或
+// InvalidStateError），可取消下一行的注释，打开页面一次让它删掉旧库后重新建库：
+// indexedDB.deleteDatabase && indexedDB.deleteDatabase('mini_phone_db');
 let db = null;
 const STORES = ['accounts', 'characters', 'friends', 'messages', 'apiConfigs', 'worldbooks', 'stories', 'storyMessages', 'musicLinks', 'diaries', 'settings'];
 const ICONS = {
@@ -1171,14 +1174,38 @@ function safeImgUrl(obj, key) {
   if (v) obj[key] = null; // 脏数据置空，避免下次写入又把它原样存回去
   return '';
 }
-const put = (s, v) => new Promise((res, rej) => {
+const put = (s, v, retries = 1) => new Promise((res, rej) => {
   let clean;
   try { clean = cloneForIDB(v); } catch (e) { return rej(e); }
-  const r = db.transaction(s, 'readwrite').objectStore(s).put(clean);
+  if (!db) return rej(new Error('数据库尚未就绪'));
+  // 给对象补上 keyPath，避免单参数 put 时因缺主键报 InvalidStateError
+  const st = db.transaction(s, 'readwrite').objectStore(s);
+  const key = clean && clean[st.keyPath];
+  const r = key !== undefined && key !== null && key !== '' ? st.put(clean) : st.add(clean);
   r.onsuccess = () => { res(r.result); };
-  r.onerror = () => rej(r.error);
+  r.onerror = () => {
+    if (retries > 0 && db && db.version !== undefined) {
+      // 版本/事务冲突时延迟重试一次（等旧事务结束）
+      setTimeout(() => put(s, v, retries - 1).then(res, rej), 120);
+    } else { rej(r.error); }
+  };
 });
-const get = (s, k) => new Promise((res, rej) => { const r = db.transaction(s, 'readonly').objectStore(s).get(k); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+const get = (s, k) => new Promise((res, rej) => {
+  if (!db) return rej(new Error('数据库尚未就绪'));
+  // 主键查找；若主键找不到，尝试按各索引回退查找（兼容通讯号/accountId 等被误当主键传入的情况）
+  const tx = db.transaction(s, 'readonly'), st = tx.objectStore(s);
+  const r = st.get(k);
+  r.onerror = () => rej(r.error);
+  r.onsuccess = async () => {
+    if (r.result) return res(r.result);
+    try {
+      const all = await new Promise((rs, rj) => { const a = st.getAll(); a.onsuccess = () => rs(a.result || []); a.onerror = () => rj(a.error); });
+      // 按通讯号 / 字符 id 模糊匹配（字符串数字兼容）
+      const hit = all.find(o => o && (o.id === k || o.contactId === k || String(o.id) === String(k) || String(o.contactId) === String(k) || o.username === k));
+      res(hit || null);
+    } catch (e) { res(null); }
+  };
+});
 const del = (s, k) => new Promise((res, rej) => { const r = db.transaction(s, 'readwrite').objectStore(s).delete(k); r.onsuccess = () => res(); r.onerror = () => rej(r.error); });
 const getByI = (s, i, q) => new Promise((res, rej) => { const r = db.transaction(s, 'readonly').objectStore(s).index(i).get(q); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
 const getAllI = (s, i, q) => new Promise((res, rej) => {
@@ -1544,39 +1571,57 @@ createApp({
       this.authForm = { username: '', password: '' };
       this.authMsg = '';
     },
-    async pickFile(e, tgt) {
-      const f = e.target.files[0]; if (!f) return;
-      const max = 1024 * 1024; // 1MB，避免大图写入 IndexedDB 卡顿
-      let file = f;
-      // 压缩：缩到 512px 以内 + 转 jpg，解决 HEIC 等格式不被支持、体积过大问题
-      if ((f.type && !/^image\/(jpeg|jpg|png|webp|gif)$/i.test(f.type)) || f.size > max) {
-        try {
+    async pickFile(e, tgt, onReady) {
+      const f = e && e.target && e.target.files && e.target.files[0]; if (!f) return;
+      const path = Array.isArray(tgt) ? tgt : null;   // 支持 ['obj','key'] 深层赋值
+      let t = path ? this.$data : null;
+      const apply = (blob, url) => {
+        if (path) { let o = this; for (let i = 0; i < path.length - 1; i++) o = o[path[i]]; o[path[path.length - 1]] = blob; this[path[0]].avatarUrl = url; }
+        else { if (tgt.avatarUrl) URL.revokeObjectURL(tgt.avatarUrl); tgt.avatarBlob = blob; tgt.avatarUrl = url; }
+      };
+      try {
+        // 渐进压缩：先按 256px 压一次，若仍超 300KB 再压到 160px，确保能写进 IndexedDB
+        let lastBlob = null;
+        const tryCompress = async (size) => {
           const bmp = await createImageBitmap(f);
-          const MAX = 512, scale = Math.min(1, MAX / Math.max(bmp.width, bmp.height));
+          const scale = Math.min(1, size / Math.max(bmp.width, bmp.height));
           const w = Math.max(1, Math.round(bmp.width * scale)), h = Math.max(1, Math.round(bmp.height * scale));
           const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
           cv.getContext('2d').drawImage(bmp, 0, 0, w, h);
-          const blob = await new Promise(res => cv.toBlob(res, 'image/jpeg', 0.85));
-          if (blob) file = blob;
-        } catch (e) { /* 压缩失败则沿用原文件，让后续逻辑处理 */ }
-      }
-      const b = new Blob([await file.arrayBuffer()], { type: file.type && file.type.indexOf('image/') === 0 ? file.type : 'image/jpeg' });
-      if (tgt.avatarUrl) URL.revokeObjectURL(tgt.avatarUrl);
-      tgt.avatarBlob = b; tgt.avatarUrl = safeObjectURL(b); e.target.value = '';
+          return await new Promise(res => cv.toBlob(res, 'image/jpeg', 0.8));
+        };
+        try { lastBlob = await tryCompress(256); } catch (err) { lastBlob = null; }
+        if (lastBlob && lastBlob.size > 300 * 1024) { try { const b2 = await tryCompress(160); if (b2) lastBlob = b2; } catch (err) {} }
+        const blob = lastBlob || new Blob([await f.arrayBuffer()], { type: /^image\//.test(f.type || '') ? f.type : 'image/jpeg' });
+        const url = safeObjectURL(blob);
+        apply(blob, url);
+        if (typeof onReady === 'function') { try { onReady(blob, url); } catch (err) {} }
+      } catch (err) {
+        // 兜底：原文件直接包成 Blob，避免因为压缩失败导致头像彻底存不上
+        try {
+          const blob = new Blob([await f.arrayBuffer()], { type: /^image\//.test(f.type || '') ? f.type : 'image/jpeg' });
+          apply(blob, safeObjectURL(blob));
+          if (typeof onReady === 'function') { try { onReady(blob, safeObjectURL(blob)); } catch (e2) {} }
+        } catch (e2) { console.warn('pickFile 失败', e2); }
+      } finally { if (e && e.target) e.target.value = ''; }
     },
     async onMeFile(e) { await this.pickFile(e, this.meForm); this.saveMe(); },
     async saveMe() {
-      // 资料自动保存（防抖）
+      // 资料自动保存（防抖）：写入 meForm 本身，避免 account 对象与表单字段不同步
       if (this._meTimer) clearTimeout(this._meTimer);
       this._meTimer = setTimeout(() => this._saveMeNow(), 600);
     },
     async _saveMeNow() {
-      const f = this.meForm, a = this.account;
-      a.nickname = f.nickname.trim() || '我'; a.gender = f.gender.trim(); a.persona = f.persona.trim(); a.avatarBlob = f.avatarBlob;
+      const f = this.meForm;
+      const a = this.account || {};
+      a.id = a.id || this.accountId || this.uid10();
+      a.nickname = f.nickname.trim() || '我'; a.gender = f.gender.trim(); a.persona = f.persona.trim();
+      a.avatarBlob = f.avatarBlob;
       if (f.avatarBlob && !f.avatarUrl) f.avatarUrl = safeObjectURL(f.avatarBlob);
-      a.avatarUrl = f.avatarUrl;
+      a.avatarUrl = f.avatarUrl || '';
+      this.account = a;
       try { await put('accounts', a); this.autoSaveTip = '✓ 已自动保存 ' + this.fmtTime(Date.now()); }
-      catch (e) { this.autoSaveTip = '⚠ 保存失败'; }
+      catch (e) { this.autoSaveTip = '⚠ 保存失败：' + (e.message || e); }
     },
     resetApp() {
       // 不再有登录态：仅回到桌面
@@ -1816,6 +1861,37 @@ createApp({
       if (i >= 0) arr.splice(i, 1); else arr.push(id);
       this.storyForm.worldbookIds = arr.slice();
     },
+    // 保存角色头像：单独持久化头像字段，避免只换头像时点创建才生效
+    async saveCharAvatar() {
+      const f = this.charForm;
+      if (!f.id) return; // 新建角色需先点创建，不单独保存
+      try {
+        const id = f.id;
+        const obj = {
+          id,
+          accountId: this.accountId,
+          contactId: f.contactId || ('C' + String(id).slice(0, 6).toUpperCase()),
+          name: f.name || '',
+          gender: f.gender || '',
+          persona: f.persona || '',
+          opening: f.opening || '',
+          avatarBlob: f.avatarBlob || null,
+          avatarUrl: safeImgUrl({ avatarBlob: f.avatarBlob }, 'avatarBlob') || f.avatarUrl || '',
+          worldbookIds: (f.worldbookIds || []).slice(),
+          updatedAt: Date.now()
+        };
+        const old = await get('characters', id);
+        if (old && old.createdAt) obj.createdAt = old.createdAt;
+        await put('characters', obj);
+        const idx = this.characters.findIndex(x => x.id === id);
+        const synced = { ...obj, updatedAt: obj.updatedAt };
+        if (idx >= 0) this.characters.splice(idx, 1, synced); else this.characters.push(synced);
+        this.characters = this.characters.slice();
+        for (const fr of this.friends) if (fr.charId === id) fr.avatarUrl = obj.avatarUrl;
+        this.friend && this.friend.charId === id && (this.friend.avatarUrl = obj.avatarUrl);
+        this.loadChars().catch(() => {});
+      } catch (e) { console.warn('头像保存失败', e); }
+    },
     // 打开编辑：把已有角色数据填入表单（头像、人设、开场白等都可改）
     editChar(c) {
       this.charForm = {
@@ -1834,19 +1910,40 @@ createApp({
       const f = this.charForm;
       if (!f.name.trim() || !f.persona.trim()) { alert('姓名与人设为必填'); return; }
       try {
-        // 编辑已有角色
+        // 编辑已有角色：直接基于表单数据构造完整对象写入，不再依赖"写完再读回"
         if (f.id) {
-          const c = await get('characters', f.id);
-          if (!c) { alert('角色不存在'); return; }
-          c.name = f.name.trim(); c.gender = f.gender.trim(); c.persona = f.persona.trim();
-          c.opening = f.opening.trim(); c.avatarBlob = f.avatarBlob; c.avatarUrl = f.avatarUrl;
-          c.worldbookIds = (f.worldbookIds || []).slice(); c.updatedAt = Date.now();
-          await put('characters', c);
+          const id = f.id;
+          const obj = {
+            id,
+            accountId: this.accountId,
+            contactId: f.contactId || ('C' + String(id).slice(0, 6).toUpperCase()),
+            name: f.name.trim(),
+            gender: f.gender.trim(),
+            persona: f.persona.trim(),
+            opening: f.opening.trim(),
+            avatarBlob: f.avatarBlob || null,
+            avatarUrl: safeImgUrl({ avatarBlob: f.avatarBlob }, 'avatarBlob') || f.avatarUrl || '',
+            worldbookIds: (f.worldbookIds || []).slice(),
+            updatedAt: Date.now()
+          };
+          // 尽量保留原有的 createdAt
+          const old = await get('characters', id);
+          if (old && old.createdAt) obj.createdAt = old.createdAt;
+          await put('characters', obj);
           this.showChar = false;
+          // 重置表单（先记录必要信息，再清空）
+          const savedAvatarUrl = obj.avatarUrl, savedContactId = obj.contactId, savedId = obj.id;
           this.charForm = { id: '', name: '', gender: '', persona: '', opening: '', avatarBlob: null, avatarUrl: '', worldbookIds: [] };
-          await this.loadChars(); await this.loadFriends();
-          // 若正在与这个角色聊天，同步更新好友侧头像
-          if (this.friend && this.friend.charId === c.id) { this.friend.avatarUrl = c.avatarUrl; }
+          // 乐观更新列表：不等重载，先同步前端，避免"找不到"的假象
+          const idx = this.characters.findIndex(x => x.id === savedId);
+          const synced = { id: savedId, contactId: savedContactId, name: obj.name, gender: obj.gender, persona: obj.persona, opening: obj.opening, avatarBlob: obj.avatarBlob, avatarUrl: savedAvatarUrl, worldbookIds: obj.worldbookIds, updatedAt: obj.updatedAt };
+          if (idx >= 0) this.characters.splice(idx, 1, synced); else this.characters.push(synced);
+          this.characters = this.characters.slice();
+          // 同步好友列表中的头像/名字
+          for (const fr of this.friends) if (fr.charId === savedId) { fr.avatarUrl = savedAvatarUrl; fr.displayName = obj.name; }
+          // 后台静默刷新，确保与数据库一致
+          this.loadChars().catch(() => {}); this.loadFriends().catch(() => {});
+          if (this.friend && this.friend.charId === savedId) this.friend.avatarUrl = savedAvatarUrl;
           alert('角色已更新');
           return;
         }
