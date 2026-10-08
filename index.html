@@ -179,6 +179,23 @@ textarea.code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
 
 <div v-if="screen==='loading'" class="loading">正在准备…</div>
 
+<div v-else-if="screen==='auth'" class="auth">
+  <div style="font-size:44px; margin-bottom:6px;">🏠</div>
+  <div class="auth-title">牙娅的小家</div>
+  <div class="auth-sub">登录后进入你的小家，账号数据仅保存在本机</div>
+  <div class="auth-switch" style="margin-top:8px;">
+    <button :class="{active: authMode==='login'}" @click="authMode='login'; authMsg=''">登录</button>
+    <button :class="{active: authMode==='register'}" @click="authMode='register'; authMsg=''">注册</button>
+  </div>
+  <div class="col" style="margin-top:4px;">
+    <div class="fg"><label>用户名</label><input class="input" v-model="authForm.username" placeholder="请输入用户名" :disabled="authBusy" /></div>
+    <div class="fg"><label>密码</label><input class="input" type="password" v-model="authForm.password" placeholder="请输入密码" :disabled="authBusy" @keyup.enter="authMode==='login'?doLogin():doRegister()" /></div>
+  </div>
+  <div v-if="authMsg" class="tiny" :style="{color: authMsgOk ? '#2b8a3e' : '#b00020'}">{{ authMsg }}</div>
+  <button class="btn" style="margin-top:4px;" :disabled="authBusy" @click="authMode==='login'?doLogin():doRegister()">{{ authBusy ? '处理中…' : (authMode==='login' ? '登录' : '注册并进入') }}</button>
+  <div class="tiny muted" style="text-align:center; margin-top:4px;">💡 数据是本地保存的，换浏览器或清缓存需要重新注册</div>
+</div>
+
 <div v-else-if="screen==='desktop'" class="desktop" :class="{'on-bg': !!desktopBackgroundUrl}" :style="desktopStyle">
   <div class="status-bar" :class="{'on-bg': !!desktopBackgroundUrl}">
     <span class="time">{{ clockText }}</span>
@@ -260,6 +277,7 @@ textarea.code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
             <div class="item-name">{{ c.name }}</div>
             <div class="tiny muted">通讯号：{{ c.contactId }}</div>
           </div>
+          <button class="btn ghost sm" @click.stop="editChar(c)">编辑</button>
         </div>
       </div>
     </div>
@@ -369,7 +387,13 @@ textarea.code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
   <div class="aheader">
     <button class="ib" @click="wbBack"><svg class="icon" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
     <div class="title">{{ wbScreen==='list' ? '世界书' : (curWb?.name || '世界书') }}</div>
-    <button v-if="wbScreen==='list'" class="ib" @click="newWb"><svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+    <template v-if="wbScreen==='list'">
+      <button class="ib" title="导入世界书" @click="$refs.wbImport.click()">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg>
+      </button>
+      <input ref="wbImport" type="file" accept=".json,application/json" style="display:none;" @change="importWbFile" />
+      <button class="ib" @click="newWb"><svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+    </template>
     <button v-else class="ib" @click="newWbEntry" title="新增条目"><svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
   </div>
   <div class="abody">
@@ -781,6 +805,14 @@ textarea.code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
         <input ref="importFile" type="file" accept=".json,application/json" style="display:none;" @change="importData" />
       </div>
       <div v-if="importMsg" class="tiny" :style="{color: importOk ? '#2b8a3e' : '#b00020', marginTop:'10px'}">{{ importMsg }}</div>
+      <div class="st">账号</div>
+      <div class="card" style="flex-direction:row; align-items:center; justify-content:space-between;">
+        <div>
+          <div style="font-size:15px; font-weight:700;">{{ account ? account.username : '未登录' }}</div>
+          <div class="tiny muted">登录状态已在本机保存，下次打开自动进入</div>
+        </div>
+        <button class="btn danger ghost sm" @click="logout">退出登录</button>
+      </div>
       <div class="st">危险区</div>
       <button class="btn danger ghost" @click="clearAll">清空全部数据</button>
     </template>
@@ -829,13 +861,15 @@ textarea.code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
 
 <div v-if="showChar" class="mask" @click.self="showChar=false">
   <div class="modal">
-    <div class="mtitle">创建角色</div>
+    <div class="mtitle">{{ charForm.id ? '编辑角色' : '创建角色' }}</div>
+    <div v-if="charForm.id" class="tiny muted" style="margin-bottom:4px;">通讯号：{{ charForm.contactId || '—' }}（通讯号创建后不可修改）</div>
     <div class="upload">
       <label class="upload-box">
         <img v-if="charForm.avatarUrl" :src="charForm.avatarUrl" />
         <svg v-else class="icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
         <input type="file" accept="image/*" @change="pickFile($event, charForm)" />
       </label>
+      <div class="tiny muted" style="margin-left:8px;">点击更换头像</div>
     </div>
     <div class="fg"><label>姓名 *</label><input class="input" v-model="charForm.name" /></div>
     <div class="fg"><label>性别</label><input class="input" v-model="charForm.gender" /></div>
@@ -1185,6 +1219,12 @@ async function unpack(data) {
   }
 }
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+// 密码哈希：纯本地账号体系，用 SHA-256 + 固定盐做单向存储，不做明文保存
+async function hashPwd(pwd) {
+  const enc = new TextEncoder().encode('yayajia:' + (pwd || ''));
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
 const now = () => Date.now();
 const dayKey = ts => { const d = new Date(ts); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 const fmtTime = ts => { const d = new Date(ts); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
@@ -1313,6 +1353,10 @@ createApp({
     meForm: { nickname: '', gender: '', persona: '', avatarBlob: null, avatarUrl: '' },
     account: null, accountId: '', autoSaveTip: '', importMsg: '', importOk: true,
     clockText: '',
+    // 登录相关
+    authMode: 'login',            // 'login' | 'register'
+    authForm: { username: '', password: '' },
+    authMsg: '', authMsgOk: true, authBusy: false,
     currentApp: null, desktopApps: [], dockApps: [],
     chatScreen: 'home', homeTab: 'friends',
     friends: [], characters: [], friend: null,
@@ -1321,7 +1365,7 @@ createApp({
     lpTimer: null, cmenu: { show: false, msg: null, x: 0, y: 0 },
     editModal: { show: false, msg: null, content: '' },
     addFriendQuery: '', showChar: false,
-    charForm: { name: '', gender: '', persona: '', opening: '', avatarBlob: null, avatarUrl: '', worldbookIds: [] },
+    charForm: { id: '', name: '', gender: '', persona: '', opening: '', avatarBlob: null, avatarUrl: '', worldbookIds: [] },
     fs: { show: false, remark: '', notify: true, proactive: false, proactiveMin: 0, proactiveMax: 0 },
     be: { show: false, chatCss: '', bubbleCss: '', bgBlob: null, bgUrl: '' },
     storyScreen: 'list', stories: [], curStory: null, storyMsgs: [], storyInput: '', storyTyping: false, showStory: false, storySaveTip: '', storySaveTipOk: true,
@@ -1416,17 +1460,90 @@ createApp({
     uid10() { return Math.random().toString(36).slice(2, 10); },
     ensureIds(obj, idKeys) { for (const k of idKeys) if (!obj[k]) obj[k] = this.uid10(); },
     async bootstrap() {
-      // 无登录模式：读取或创建本机唯一账号（所有数据挂在这个 accountId 下）
-      this.screen = 'loading';
-      let acc = (await getAll('accounts'))[0];
-      if (!acc) { acc = { id: this.uid10(), username: 'me', nickname: '我', persona: '', gender: '', createdAt: Date.now() }; await put('accounts', acc); }
-      this.account = acc;
-      acc.avatarUrl = safeImgUrl(acc, 'avatarBlob');
-      this.meForm = { nickname: acc.nickname || '', gender: acc.gender || '', persona: acc.persona || '', avatarBlob: acc.avatarBlob || null, avatarUrl: acc.avatarUrl || '' };
-      await this.loadAll();
-      this.screen = 'desktop';
+      // 登录态恢复：检查 localStorage 是否存有上次登录的账号 id
+      const savedId = localStorage.getItem('yaya_logged_in_id');
+      if (savedId) {
+        const acc = (await getAll('accounts')).find(a => a.id === savedId);
+        if (acc && acc.passwordHash) {
+          // 有有效登录态 → 直接进入桌面，无需重复登录
+          this.account = acc; this.accountId = acc.id;
+          acc.avatarUrl = safeImgUrl(acc, 'avatarBlob');
+          this.meForm = { nickname: acc.nickname || '', gender: acc.gender || '', persona: acc.persona || '', avatarBlob: acc.avatarBlob || null, avatarUrl: acc.avatarUrl || '' };
+          await this.loadAll();
+          this.screen = 'desktop';
+          return;
+        }
+        // 记录失效则清除
+        localStorage.removeItem('yaya_logged_in_id');
+      }
+      // 兼容旧版：若库里只有一个无密码的老账号，自动迁移为「已登录」状态，
+      // 并在设置页提示用户补设密码（旧数据无需重新注册）。
+      const accs = await getAll('accounts');
+      if (accs.length === 1 && !accs[0].passwordHash) {
+        const acc = accs[0];
+        acc.passwordHash = 'legacy_no_password';
+        await put('accounts', acc);
+        localStorage.setItem('yaya_logged_in_id', acc.id);
+        this.account = acc; this.accountId = acc.id;
+        acc.avatarUrl = safeImgUrl(acc, 'avatarBlob');
+        this.meForm = { nickname: acc.nickname || '', gender: acc.gender || '', persona: acc.persona || '', avatarBlob: acc.avatarBlob || null, avatarUrl: acc.avatarUrl || '' };
+        await this.loadAll();
+        this.screen = 'desktop';
+        return;
+      }
+      // 没有任何登录态 → 显示登录页
+      this.screen = 'auth';
     },
-    async login() {}, async register() {}, logout() {},
+    async doLogin() {
+      const name = this.authForm.username.trim();
+      const pwd = this.authForm.password;
+      if (!name || !pwd) { this.authMsg = '请输入用户名和密码'; this.authMsgOk = false; return; }
+      this.authBusy = true; this.authMsg = '';
+      try {
+        const accs = await getAll('accounts');
+        const acc = accs.find(a => a.username === name);
+        if (!acc || !acc.passwordHash) { this.authMsg = '账号不存在，请先注册'; this.authMsgOk = false; return; }
+        const h = await hashPwd(pwd);
+        if (h !== acc.passwordHash) { this.authMsg = '密码错误'; this.authMsgOk = false; return; }
+        localStorage.setItem('yaya_logged_in_id', acc.id);
+        this.account = acc; this.accountId = acc.id;
+        acc.avatarUrl = safeImgUrl(acc, 'avatarBlob');
+        this.meForm = { nickname: acc.nickname || '', gender: acc.gender || '', persona: acc.persona || '', avatarBlob: acc.avatarBlob || null, avatarUrl: acc.avatarUrl || '' };
+        await this.loadAll();
+        this.screen = 'desktop';
+      } catch (e) { this.authMsg = '登录失败：' + e.message; this.authMsgOk = false; }
+      finally { this.authBusy = false; }
+    },
+    async doRegister() {
+      const name = this.authForm.username.trim();
+      const pwd = this.authForm.password;
+      if (!name || !pwd) { this.authMsg = '请输入用户名和密码'; this.authMsgOk = false; return; }
+      if (pwd.length < 4) { this.authMsg = '密码至少 4 位'; this.authMsgOk = false; return; }
+      this.authBusy = true; this.authMsg = '';
+      try {
+        const accs = await getAll('accounts');
+        if (accs.find(a => a.username === name)) { this.authMsg = '用户名已存在'; this.authMsgOk = false; return; }
+        const h = await hashPwd(pwd);
+        const acc = { id: uid(), username: name, nickname: name, persona: '', gender: '', passwordHash: h, createdAt: Date.now() };
+        await put('accounts', acc);
+        localStorage.setItem('yaya_logged_in_id', acc.id);
+        this.account = acc; this.accountId = acc.id;
+        acc.avatarUrl = safeImgUrl(acc, 'avatarBlob');
+        this.meForm = { nickname: acc.nickname || '', gender: acc.gender || '', persona: acc.persona || '', avatarBlob: acc.avatarBlob || null, avatarUrl: acc.avatarUrl || '' };
+        await this.loadAll();
+        this.screen = 'desktop';
+      } catch (e) { this.authMsg = '注册失败：' + e.message; this.authMsgOk = false; }
+      finally { this.authBusy = false; }
+    },
+    logout() {
+      localStorage.removeItem('yaya_logged_in_id');
+      this.account = null;
+      this.characters = []; this.friends = []; this.messages = [];
+      this.wbs = []; this.stories = []; this.musicLinks = []; this.apiConfigs = [];
+      this.screen = 'auth';
+      this.authForm = { username: '', password: '' };
+      this.authMsg = '';
+    },
     async pickFile(e, tgt) {
       const f = e.target.files[0]; if (!f) return;
       const max = 1024 * 1024; // 1MB，避免大图写入 IndexedDB 卡顿
@@ -1699,14 +1816,45 @@ createApp({
       if (i >= 0) arr.splice(i, 1); else arr.push(id);
       this.storyForm.worldbookIds = arr.slice();
     },
+    // 打开编辑：把已有角色数据填入表单（头像、人设、开场白等都可改）
+    editChar(c) {
+      this.charForm = {
+        id: c.id,
+        name: c.name || '',
+        gender: c.gender || '',
+        persona: c.persona || '',
+        opening: c.opening || '',
+        avatarBlob: c.avatarBlob || null,
+        avatarUrl: safeImgUrl(c, 'avatarBlob'),
+        worldbookIds: (c.worldbookIds || []).slice()
+      };
+      this.showChar = true;
+    },
     async createChar() {
       const f = this.charForm;
       if (!f.name.trim() || !f.persona.trim()) { alert('姓名与人设为必填'); return; }
       try {
+        // 编辑已有角色
+        if (f.id) {
+          const c = await get('characters', f.id);
+          if (!c) { alert('角色不存在'); return; }
+          c.name = f.name.trim(); c.gender = f.gender.trim(); c.persona = f.persona.trim();
+          c.opening = f.opening.trim(); c.avatarBlob = f.avatarBlob; c.avatarUrl = f.avatarUrl;
+          c.worldbookIds = (f.worldbookIds || []).slice(); c.updatedAt = Date.now();
+          await put('characters', c);
+          this.showChar = false;
+          this.charForm = { id: '', name: '', gender: '', persona: '', opening: '', avatarBlob: null, avatarUrl: '', worldbookIds: [] };
+          await this.loadChars(); await this.loadFriends();
+          // 若正在与这个角色聊天，同步更新好友侧头像
+          if (this.friend && this.friend.charId === c.id) { this.friend.avatarUrl = c.avatarUrl; }
+          alert('角色已更新');
+          return;
+        }
+        // 新建角色
         const cid = 'C' + Math.random().toString(36).slice(2, 8).toUpperCase();
         await put('characters', { id: uid(), accountId: this.accountId, contactId: cid, name: f.name.trim(), gender: f.gender.trim(), persona: f.persona.trim(), opening: f.opening.trim(), avatarBlob: f.avatarBlob, worldbookIds: (f.worldbookIds || []).slice(), createdAt: Date.now() });
         this.showChar = false;
-        this.charForm = { name: '', gender: '', persona: '', opening: '', avatarBlob: null, avatarUrl: '', worldbookIds: [] };
+        this.charForm = { id: '', name: '', gender: '', persona: '', opening: '', avatarBlob: null, avatarUrl: '', worldbookIds: [] };
         await this.loadChars(); await this.loadFriends();
         alert('角色已创建，通讯号：' + cid);
       } catch (e) { alert('失败：' + e.message); }
@@ -1832,6 +1980,61 @@ createApp({
       if (this.wbScreen === 'list') this.closeApp(); else this.wbScreen = 'list';
     },
     async newWb() { const wb = { id: uid(), accountId: this.accountId, name: '新世界书', description: '', entries: [], createdAt: Date.now(), updatedAt: Date.now() }; await put('worldbooks', wb); await this.loadWbs(); this.openWb(wb); },
+    // 导入世界书文件：支持自家格式（{name, description, entries:[...]}）
+    // 与 SillyTavern 世界书格式（entries 为对象映射，含comment/content/position/constant/key等字段）
+    async importWbFile(e) {
+      const file = e.target.files[0]; e.target.value = '';
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const j = JSON.parse(text);
+        const entries = [];
+        // 判断格式
+        if (j && typeof j === 'object' && j.entries && !Array.isArray(j.entries)) {
+          // SillyTavern 格式：entries 是 { id: {comment, content, position, constant, key:[...]} } 映射
+          for (const key of Object.keys(j.entries)) {
+            const en = j.entries[key];
+            if (!en || !en.content) continue;
+            const keys = Array.isArray(en.key) ? en.key : (typeof en.key === 'string' && en.key ? [en.key] : []);
+            entries.push({
+              id: uid(),
+              content: en.content,
+              position: ['before','after','middle'].indexOf(en.position) >= 0 ? en.position : 'before',
+              trigger: en.constant ? 'always' : (keys.length ? 'keyword' : 'always'),
+              keywords: keys,
+              keywordsText: keys.join('，'),
+              probability: (en.selective || en.probability) ? 0.5 : 1,
+              enabled: true
+            });
+          }
+        } else if (j && Array.isArray(j.entries)) {
+          // 自家格式
+          for (const en of j.entries) {
+            if (!en || !en.content) continue;
+            const kws = Array.isArray(en.keywords) ? en.keywords : [];
+            entries.push({
+              id: uid(),
+              content: en.content,
+              position: ['before','after','middle'].indexOf(en.position) >= 0 ? en.position : 'before',
+              trigger: en.trigger || (kws.length ? 'keyword' : 'always'),
+              keywords: kws,
+              keywordsText: kws.join('，'),
+              probability: typeof en.probability === 'number' ? en.probability : 0.5,
+              enabled: true
+            });
+          }
+        } else { throw new Error('格式无法识别，请检查文件'); }
+        if (entries.length === 0) throw new Error('该文件没有可导入的条目');
+        const wb = {
+          id: uid(), accountId: this.accountId,
+          name: (j.name && String(j.name).trim()) || (j.title && String(j.title).trim()) || file.name.replace(/\.json$/i, '') || '导入的世界书',
+          description: (j.description && String(j.description)) || '',
+          entries, createdAt: Date.now(), updatedAt: Date.now()
+        };
+        await put('worldbooks', wb); await this.loadWbs(); this.openWb(wb);
+        alert('导入成功，共 ' + entries.length + ' 条');
+      } catch (err) { alert('导入失败：' + err.message); }
+    },
     openWb(wb) { this.curWb = JSON.parse(JSON.stringify(wb)); this.wbScreen = 'detail'; this.wbDirty = false; this.wbSaveTip = ''; },
     markDirty() { this.wbDirty = true; this.wbSaveTip = ''; },
     async saveWb() {
