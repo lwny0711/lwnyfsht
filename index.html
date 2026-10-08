@@ -815,6 +815,8 @@ textarea.code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
       </div>
       <div class="st">危险区</div>
       <button class="btn danger ghost" @click="clearAll">清空全部数据</button>
+      <button class="btn danger" style="margin-top:10px;" @click="resetDatabase">重置本地数据库（删库重建）</button>
+      <div class="tiny muted" style="margin-top:6px;">若头像改不了、报"角色不存在"、页面卡红字，点上面按钮重置即可修复（会清空本机全部数据，需重新注册）。</div>
     </template>
     <template v-else>
       <div class="placeholder">
@@ -1128,6 +1130,9 @@ function openDB() {
       const ml = es('musicLinks', { keyPath: 'id' }); ei(ml, 'accountId', 'accountId');
       const dy = es('diaries', { keyPath: 'id' }); ei(dy, 'friendId', 'friendId'); ei(dy, 'date', ['friendId', 'date'], { unique: true });
       es('settings', { keyPath: 'accountId' });
+      // 头像独立小表：只存 128px 以下的小体积 ArrayBuffer，绕开小米浏览器
+      // 对大对象/Base64 写入 IndexedDB 时的兼容性死穴。
+      if (!d.objectStoreNames.contains('avatarBlobs')) d.createObjectStore('avatarBlobs', { keyPath: 'id' });
     };
     r.onsuccess = () => { db = r.result; res(db); };
     r.onerror = () => rej(r.error);
@@ -1174,6 +1179,86 @@ function safeImgUrl(obj, key) {
   if (v) obj[key] = null; // 脏数据置空，避免下次写入又把它原样存回去
   return '';
 }
+// ===== 头像独立存储（绕开小米浏览器大对象写入限制）=====
+// 头像压缩到 128px、质量 0.6，再以 ArrayBuffer 存入独立小表 avatarBlobs，
+// 主表只保留一个引用 id（avatarRef），不再把图片塞进角色/账号对象里。
+let _avTicker = 0;
+function genAvRef() { return 'AV' + Date.now().toString(36) + (_avTicker++).toString(36) + Math.random().toString(36).slice(2, 5); }
+
+// 压缩图片为小体积 JPEG（<=128px，质量 0.6，通常 <20KB）
+async function compressAvatar(fileOrBlob) {
+  const f = fileOrBlob;
+  // 先尝试用 ImageBitmap 解码（支持 jpg/png/webp/gif/部分 heic 等）
+  let bmp = null;
+  try { bmp = await createImageBitmap(f); } catch (e) { bmp = null; }
+  if (bmp && (bmp.width > 1 || bmp.height > 1)) {
+    const MAX = 128;
+    const scale = Math.min(1, MAX / Math.max(bmp.width, bmp.height));
+    const w = Math.max(1, Math.round(bmp.width * scale));
+    const h = Math.max(1, Math.round(bmp.height * scale));
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    cv.getContext('2d').drawImage(bmp, 0, 0, w, h);
+    return await new Promise(res => cv.toBlob(res, 'image/jpeg', 0.6));
+  }
+  // 解码失败兜底：直接当 ArrayBuffer 存（即便存不进库也不会崩界面）
+  const buf = await f.arrayBuffer();
+  return new Blob([new Uint8Array(buf)], { type: /^image\//.test(f.type || '') ? f.type : 'image/jpeg' });
+}
+
+// 把图片存入独立小表，返回 ref id（失败返回 null）
+async function storeAvatar(fileOrBlob) {
+  if (!db) throw new Error('数据库尚未就绪');
+  const blob = await compressAvatar(fileOrBlob);
+  const ref = genAvRef();
+  const ab = await blob.arrayBuffer();
+  await put('avatarBlobs', { id: ref, data: ab, type: 'image/jpeg', size: ab.byteLength, t: Date.now() });
+  return ref;
+}
+
+// 根据 ref 取临时预览 URL
+async function loadAvatarUrl(ref) {
+  if (!ref || typeof ref !== 'string') return '';
+  if (!db) return '';
+  try {
+    const r = await get('avatarBlobs', ref);
+    if (!r || !r.data) return '';
+    const blob = new Blob([r.data], { type: r.type || 'image/jpeg' });
+    return safeObjectURL(blob);
+  } catch (e) { return ''; }
+}
+
+// 旧数据迁移：把角色/账号里残留的 avatarBlob 转存到新表，主表改为 ref
+async function migrateAvatars() {
+  if (!db || !db.objectStoreNames.contains('avatarBlobs')) return;
+  try {
+    const chs = await getAll('characters');
+    for (const c of chs) {
+      if (!c.avatarRef && c.avatarBlob && c.avatarBlob.size) {
+        try {
+          const ref = await storeAvatar(c.avatarBlob);
+          if (ref) { c.avatarRef = ref; await put('characters', c); }
+        } catch (e) { /* 跳过单个 */ }
+      }
+    }
+    const accs = await getAll('accounts');
+    for (const a of accs) {
+      if (!a.avatarRef && a.avatarBlob && a.avatarBlob.size) {
+        try {
+          const ref = await storeAvatar(a.avatarBlob);
+          if (ref) { a.avatarRef = ref; await put('accounts', a); }
+        } catch (e) { /* 跳过单个 */ }
+      }
+    }
+  } catch (e) { console.warn('头像迁移跳过', e); }
+}
+
+// 统一读取某对象的头像 URL（ref 优先，兼容旧 avatarBlob）
+async function ensureAvatarUrl(obj) {
+  if (!obj) return '';
+  if (obj.avatarRef) { const u = await loadAvatarUrl(obj.avatarRef); if (u) return u; }
+  return safeImgUrl(obj, 'avatarBlob');
+}
+
 const put = (s, v, retries = 1) => new Promise((res, rej) => {
   let clean;
   try { clean = cloneForIDB(v); } catch (e) { return rej(e); }
@@ -1456,6 +1541,8 @@ createApp({
     this.tick(); setInterval(this.tick, 30000);
     try {
       await openDB();
+      // 启动后异步迁移旧版头像数据（avatarBlob → 新独立小表），不阻塞界面
+      migrateAvatars().catch(() => {});
       this.chatStyleEl = document.createElement('style'); document.head.appendChild(this.chatStyleEl);
       this.bubbleStyleEl = document.createElement('style'); document.head.appendChild(this.bubbleStyleEl);
       this.desktopCssEl = document.createElement('style'); document.head.appendChild(this.desktopCssEl);
@@ -1494,8 +1581,8 @@ createApp({
         if (acc && acc.passwordHash) {
           // 有有效登录态 → 直接进入桌面，无需重复登录
           this.account = acc; this.accountId = acc.id;
-          acc.avatarUrl = safeImgUrl(acc, 'avatarBlob');
-          this.meForm = { nickname: acc.nickname || '', gender: acc.gender || '', persona: acc.persona || '', avatarBlob: acc.avatarBlob || null, avatarUrl: acc.avatarUrl || '' };
+          acc.avatarUrl = await ensureAvatarUrl(acc);
+          this.meForm = { nickname: acc.nickname || '', gender: acc.gender || '', persona: acc.persona || '', avatarRef: acc.avatarRef || null, avatarBlob: null, avatarUrl: acc.avatarUrl || '' };
           await this.loadAll();
           this.screen = 'desktop';
           return;
@@ -1512,8 +1599,8 @@ createApp({
         await put('accounts', acc);
         localStorage.setItem('yaya_logged_in_id', acc.id);
         this.account = acc; this.accountId = acc.id;
-        acc.avatarUrl = safeImgUrl(acc, 'avatarBlob');
-        this.meForm = { nickname: acc.nickname || '', gender: acc.gender || '', persona: acc.persona || '', avatarBlob: acc.avatarBlob || null, avatarUrl: acc.avatarUrl || '' };
+        acc.avatarUrl = await ensureAvatarUrl(acc);
+        this.meForm = { nickname: acc.nickname || '', gender: acc.gender || '', persona: acc.persona || '', avatarRef: acc.avatarRef || null, avatarBlob: null, avatarUrl: acc.avatarUrl || '' };
         await this.loadAll();
         this.screen = 'desktop';
         return;
@@ -1534,8 +1621,8 @@ createApp({
         if (h !== acc.passwordHash) { this.authMsg = '密码错误'; this.authMsgOk = false; return; }
         localStorage.setItem('yaya_logged_in_id', acc.id);
         this.account = acc; this.accountId = acc.id;
-        acc.avatarUrl = safeImgUrl(acc, 'avatarBlob');
-        this.meForm = { nickname: acc.nickname || '', gender: acc.gender || '', persona: acc.persona || '', avatarBlob: acc.avatarBlob || null, avatarUrl: acc.avatarUrl || '' };
+        acc.avatarUrl = await ensureAvatarUrl(acc);
+        this.meForm = { nickname: acc.nickname || '', gender: acc.gender || '', persona: acc.persona || '', avatarRef: acc.avatarRef || null, avatarBlob: null, avatarUrl: acc.avatarUrl || '' };
         await this.loadAll();
         this.screen = 'desktop';
       } catch (e) { this.authMsg = '登录失败：' + e.message; this.authMsgOk = false; }
@@ -1555,8 +1642,8 @@ createApp({
         await put('accounts', acc);
         localStorage.setItem('yaya_logged_in_id', acc.id);
         this.account = acc; this.accountId = acc.id;
-        acc.avatarUrl = safeImgUrl(acc, 'avatarBlob');
-        this.meForm = { nickname: acc.nickname || '', gender: acc.gender || '', persona: acc.persona || '', avatarBlob: acc.avatarBlob || null, avatarUrl: acc.avatarUrl || '' };
+        acc.avatarUrl = await ensureAvatarUrl(acc);
+        this.meForm = { nickname: acc.nickname || '', gender: acc.gender || '', persona: acc.persona || '', avatarRef: acc.avatarRef || null, avatarBlob: null, avatarUrl: acc.avatarUrl || '' };
         await this.loadAll();
         this.screen = 'desktop';
       } catch (e) { this.authMsg = '注册失败：' + e.message; this.authMsgOk = false; }
@@ -1573,39 +1660,37 @@ createApp({
     },
     async pickFile(e, tgt, onReady) {
       const f = e && e.target && e.target.files && e.target.files[0]; if (!f) return;
-      const path = Array.isArray(tgt) ? tgt : null;   // 支持 ['obj','key'] 深层赋值
-      let t = path ? this.$data : null;
-      const apply = (blob, url) => {
-        if (path) { let o = this; for (let i = 0; i < path.length - 1; i++) o = o[path[i]]; o[path[path.length - 1]] = blob; this[path[0]].avatarUrl = url; }
-        else { if (tgt.avatarUrl) URL.revokeObjectURL(tgt.avatarUrl); tgt.avatarBlob = blob; tgt.avatarUrl = url; }
-      };
-      try {
-        // 渐进压缩：先按 256px 压一次，若仍超 300KB 再压到 160px，确保能写进 IndexedDB
-        let lastBlob = null;
-        const tryCompress = async (size) => {
-          const bmp = await createImageBitmap(f);
-          const scale = Math.min(1, size / Math.max(bmp.width, bmp.height));
-          const w = Math.max(1, Math.round(bmp.width * scale)), h = Math.max(1, Math.round(bmp.height * scale));
-          const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-          cv.getContext('2d').drawImage(bmp, 0, 0, w, h);
-          return await new Promise(res => cv.toBlob(res, 'image/jpeg', 0.8));
-        };
-        try { lastBlob = await tryCompress(256); } catch (err) { lastBlob = null; }
-        if (lastBlob && lastBlob.size > 300 * 1024) { try { const b2 = await tryCompress(160); if (b2) lastBlob = b2; } catch (err) {} }
-        const blob = lastBlob || new Blob([await f.arrayBuffer()], { type: /^image\//.test(f.type || '') ? f.type : 'image/jpeg' });
-        const url = safeObjectURL(blob);
-        apply(blob, url);
-        if (typeof onReady === 'function') { try { onReady(blob, url); } catch (err) {} }
-      } catch (err) {
-        // 兜底：原文件直接包成 Blob，避免因为压缩失败导致头像彻底存不上
+      const path = Array.isArray(tgt) ? tgt : null;
+      // 通用写入：把图片存进独立小表，主对象只保留 ref
+      const apply = async (fileOrBlob) => {
         try {
-          const blob = new Blob([await f.arrayBuffer()], { type: /^image\//.test(f.type || '') ? f.type : 'image/jpeg' });
-          apply(blob, safeObjectURL(blob));
-          if (typeof onReady === 'function') { try { onReady(blob, safeObjectURL(blob)); } catch (e2) {} }
-        } catch (e2) { console.warn('pickFile 失败', e2); }
-      } finally { if (e && e.target) e.target.value = ''; }
+          const ref = await storeAvatar(fileOrBlob);
+          const url = await loadAvatarUrl(ref);
+          if (path) { let o = this; for (let i = 0; i < path.length - 1; i++) o = o[path[i]]; o[path[path.length - 1]] = ref; this[path[0]].avatarUrl = url; }
+          else { if (tgt.avatarUrl) URL.revokeObjectURL(tgt.avatarUrl); tgt.avatarBlob = null; tgt.avatarRef = ref; tgt.avatarUrl = url; }
+          if (typeof onReady === 'function') { try { onReady(ref, url); } catch (err) {} }
+          return true;
+        } catch (err) {
+          console.warn('头像保存失败（已自动降级）', err);
+          // 降级：压缩成小 Blob 直接挂上，至少界面能显示（可能刷新后丢失）
+          try {
+            const bmp = await createImageBitmap(fileOrBlob);
+            const scale = Math.min(1, 128 / Math.max(bmp.width, bmp.height));
+            const w = Math.max(1, Math.round(bmp.width * scale)), h = Math.max(1, Math.round(bmp.height * scale));
+            const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+            cv.getContext('2d').drawImage(bmp, 0, 0, w, h);
+            const blob = await new Promise(res => cv.toBlob(res, 'image/jpeg', 0.5));
+            const url = safeObjectURL(blob);
+            if (path) { let o = this; for (let i = 0; i < path.length - 1; i++) o = o[path[i]]; o[path[path.length - 1]] = null; this[path[0]].avatarUrl = url; }
+            else { tgt.avatarBlob = blob; tgt.avatarRef = null; tgt.avatarUrl = url; }
+            if (typeof onReady === 'function') { try { onReady(null, url); } catch (e2) {} }
+          } catch (e2) { /* 界面保持原样 */ }
+          return false;
+        }
+      };
+      try { await apply(f); } finally { if (e && e.target) e.target.value = ''; }
     },
-    async onMeFile(e) { await this.pickFile(e, this.meForm); this.saveMe(); },
+    async onMeFile(e) { await this.pickFile(e, this.meForm, () => { this.saveMe(); }); },
     async saveMe() {
       // 资料自动保存（防抖）：写入 meForm 本身，避免 account 对象与表单字段不同步
       if (this._meTimer) clearTimeout(this._meTimer);
@@ -1616,8 +1701,9 @@ createApp({
       const a = this.account || {};
       a.id = a.id || this.accountId || this.uid10();
       a.nickname = f.nickname.trim() || '我'; a.gender = f.gender.trim(); a.persona = f.persona.trim();
-      a.avatarBlob = f.avatarBlob;
-      if (f.avatarBlob && !f.avatarUrl) f.avatarUrl = safeObjectURL(f.avatarBlob);
+      // 账号头像也走独立小表：ref 优先，不再把大图塞进 accounts 主表
+      a.avatarRef = f.avatarRef || null;
+      a.avatarBlob = null;
       a.avatarUrl = f.avatarUrl || '';
       this.account = a;
       try { await put('accounts', a); this.autoSaveTip = '✓ 已自动保存 ' + this.fmtTime(Date.now()); }
@@ -1633,7 +1719,12 @@ createApp({
       await this.refreshDiaryList();
     },
     async loadChars() {
-      try { this.characters = await getAllI('characters', 'accountId', this.accountId); for (const c of this.characters) c.avatarUrl = safeImgUrl(c, 'avatarBlob'); } catch (e) { console.warn('loadChars', e); this.characters = []; }
+      try {
+        const list = await getAllI('characters', 'accountId', this.accountId);
+        // 统一用 ref 解析头像（兼容旧版 avatarBlob）
+        for (const c of list) c.avatarUrl = await ensureAvatarUrl(c);
+        this.characters = list;
+      } catch (e) { console.warn('loadChars', e); this.characters = []; }
     },
     async loadFriends() {
       try {
@@ -1641,7 +1732,8 @@ createApp({
         for (const f of fs) {
           f.char = this.characters.find(x => x.id === f.charId);
           f.displayName = f.remark || (f.char ? f.char.name : '未知');
-          if (f.char) f.avatarUrl = safeImgUrl(f.char, 'avatarBlob');
+          // 好友头像优先用自身 ref，其次用角色 ref
+          f.avatarUrl = (f.avatarRef && await loadAvatarUrl(f.avatarRef)) || (f.char && (f.char.avatarUrl || await ensureAvatarUrl(f.char))) || '';
           f.chatBgUrl = safeImgUrl(f, 'chatBgBlob');
           f.notify = f.notify !== false; f.proactive = !!f.proactive;
           f.proactiveMin = f.proactiveMin || 0; f.proactiveMax = f.proactiveMax || 0; f.proactiveNext = f.proactiveNext || 0;
@@ -1875,8 +1967,10 @@ createApp({
           gender: f.gender || '',
           persona: f.persona || '',
           opening: f.opening || '',
-          avatarBlob: f.avatarBlob || null,
-          avatarUrl: safeImgUrl({ avatarBlob: f.avatarBlob }, 'avatarBlob') || f.avatarUrl || '',
+          // 关键：主表只存 ref，不存大图对象，绕开小米浏览器写入限制
+          avatarRef: f.avatarRef || null,
+          avatarBlob: null,
+          avatarUrl: f.avatarUrl || '',
           worldbookIds: (f.worldbookIds || []).slice(),
           updatedAt: Date.now()
         };
@@ -1887,7 +1981,7 @@ createApp({
         const synced = { ...obj, updatedAt: obj.updatedAt };
         if (idx >= 0) this.characters.splice(idx, 1, synced); else this.characters.push(synced);
         this.characters = this.characters.slice();
-        for (const fr of this.friends) if (fr.charId === id) fr.avatarUrl = obj.avatarUrl;
+        for (const fr of this.friends) if (fr.charId === id) { fr.avatarRef = obj.avatarRef; fr.avatarUrl = obj.avatarUrl; }
         this.friend && this.friend.charId === id && (this.friend.avatarUrl = obj.avatarUrl);
         this.loadChars().catch(() => {});
       } catch (e) { console.warn('头像保存失败', e); }
@@ -1900,11 +1994,14 @@ createApp({
         gender: c.gender || '',
         persona: c.persona || '',
         opening: c.opening || '',
-        avatarBlob: c.avatarBlob || null,
-        avatarUrl: safeImgUrl(c, 'avatarBlob'),
+        avatarRef: c.avatarRef || null,
+        avatarBlob: null,
+        avatarUrl: '',  // 打开时异步加载，避免先显示脏数据
         worldbookIds: (c.worldbookIds || []).slice()
       };
       this.showChar = true;
+      // 异步把头像 ref 解析成预览 URL
+      ensureAvatarUrl(c).then(u => { if (u) this.charForm.avatarUrl = u; }).catch(() => {});
     },
     async createChar() {
       const f = this.charForm;
@@ -1921,27 +2018,23 @@ createApp({
             gender: f.gender.trim(),
             persona: f.persona.trim(),
             opening: f.opening.trim(),
-            avatarBlob: f.avatarBlob || null,
-            avatarUrl: safeImgUrl({ avatarBlob: f.avatarBlob }, 'avatarBlob') || f.avatarUrl || '',
+            avatarRef: f.avatarRef || null,
+            avatarBlob: null,
+            avatarUrl: f.avatarUrl || '',
             worldbookIds: (f.worldbookIds || []).slice(),
             updatedAt: Date.now()
           };
-          // 尽量保留原有的 createdAt
           const old = await get('characters', id);
           if (old && old.createdAt) obj.createdAt = old.createdAt;
           await put('characters', obj);
           this.showChar = false;
-          // 重置表单（先记录必要信息，再清空）
-          const savedAvatarUrl = obj.avatarUrl, savedContactId = obj.contactId, savedId = obj.id;
-          this.charForm = { id: '', name: '', gender: '', persona: '', opening: '', avatarBlob: null, avatarUrl: '', worldbookIds: [] };
-          // 乐观更新列表：不等重载，先同步前端，避免"找不到"的假象
+          const savedAvatarUrl = obj.avatarUrl, savedContactId = obj.contactId, savedId = obj.id, savedRef = obj.avatarRef;
+          this.charForm = { id: '', name: '', gender: '', persona: '', opening: '', avatarBlob: null, avatarRef: null, avatarUrl: '', worldbookIds: [] };
           const idx = this.characters.findIndex(x => x.id === savedId);
-          const synced = { id: savedId, contactId: savedContactId, name: obj.name, gender: obj.gender, persona: obj.persona, opening: obj.opening, avatarBlob: obj.avatarBlob, avatarUrl: savedAvatarUrl, worldbookIds: obj.worldbookIds, updatedAt: obj.updatedAt };
+          const synced = { id: savedId, contactId: savedContactId, name: obj.name, gender: obj.gender, persona: obj.persona, opening: obj.opening, avatarRef: savedRef, avatarUrl: savedAvatarUrl, worldbookIds: obj.worldbookIds, updatedAt: obj.updatedAt };
           if (idx >= 0) this.characters.splice(idx, 1, synced); else this.characters.push(synced);
           this.characters = this.characters.slice();
-          // 同步好友列表中的头像/名字
-          for (const fr of this.friends) if (fr.charId === savedId) { fr.avatarUrl = savedAvatarUrl; fr.displayName = obj.name; }
-          // 后台静默刷新，确保与数据库一致
+          for (const fr of this.friends) if (fr.charId === savedId) { fr.avatarRef = savedRef; fr.avatarUrl = savedAvatarUrl; fr.displayName = obj.name; }
           this.loadChars().catch(() => {}); this.loadFriends().catch(() => {});
           if (this.friend && this.friend.charId === savedId) this.friend.avatarUrl = savedAvatarUrl;
           alert('角色已更新');
@@ -1949,9 +2042,9 @@ createApp({
         }
         // 新建角色
         const cid = 'C' + Math.random().toString(36).slice(2, 8).toUpperCase();
-        await put('characters', { id: uid(), accountId: this.accountId, contactId: cid, name: f.name.trim(), gender: f.gender.trim(), persona: f.persona.trim(), opening: f.opening.trim(), avatarBlob: f.avatarBlob, worldbookIds: (f.worldbookIds || []).slice(), createdAt: Date.now() });
+        await put('characters', { id: uid(), accountId: this.accountId, contactId: cid, name: f.name.trim(), gender: f.gender.trim(), persona: f.persona.trim(), opening: f.opening.trim(), avatarRef: f.avatarRef || null, avatarBlob: null, avatarUrl: f.avatarUrl || '', worldbookIds: (f.worldbookIds || []).slice(), createdAt: Date.now() });
         this.showChar = false;
-        this.charForm = { id: '', name: '', gender: '', persona: '', opening: '', avatarBlob: null, avatarUrl: '', worldbookIds: [] };
+        this.charForm = { id: '', name: '', gender: '', persona: '', opening: '', avatarBlob: null, avatarRef: null, avatarUrl: '', worldbookIds: [] };
         await this.loadChars(); await this.loadFriends();
         alert('角色已创建，通讯号：' + cid);
       } catch (e) { alert('失败：' + e.message); }
@@ -2550,6 +2643,19 @@ createApp({
       for (const s of STORES) await clearStore(s);
       this.importMsg = '✓ 已清空，正在重置…';
       await this.bootstrap();
+    },
+    // 一键重置数据库：删掉旧库强制重建，专治头像存不上、角色不存在、IndexedDB 红字
+    async resetDatabase() {
+      if (!confirm('重置会清空本机全部数据（角色/聊天/世界书等），并重新进入登录页，确定吗？')) return;
+      try {
+        // 先逐表清空
+        for (const s of STORES) { try { await clearStore(s); } catch (e) {} }
+        // 再删掉整个旧库，强制下次按最新版本号重建表结构
+        await new Promise(res => { const r = indexedDB.deleteDatabase(DB); r.onsuccess = () => res(); r.onerror = () => res(); r.onblocked = () => res(); });
+        localStorage.removeItem('yaya_logged_in_id');
+        this.importMsg = '✓ 数据库已重置，正在刷新…';
+        setTimeout(() => { try { location.href = location.pathname + '?r=' + Date.now(); } catch (e) { location.reload(); } }, 800);
+      } catch (e) { alert('重置失败：' + (e.message || e)); }
     }
   }
 }).mount('#app');
