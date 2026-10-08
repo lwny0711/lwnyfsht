@@ -1120,6 +1120,23 @@ function cloneForIDB(v) {
   }
   return v;
 }
+// 安全的对象 URL 生成：只对合法的 Blob/File 调用 createObjectURL，
+// 否则返回空串并记录日志，避免 "Overload resolution failed" 导致初始化崩溃。
+function safeObjectURL(blob) {
+  try {
+    if (blob && typeof blob === 'object' && typeof blob.size === 'number' && typeof blob.type === 'string' && typeof URL.createObjectURL === 'function') {
+      return URL.createObjectURL(blob);
+    }
+  } catch (e) { console.warn('createObjectURL 失败', e); }
+  return '';
+}
+function safeImgUrl(obj, key) {
+  // 读取库数据时，过滤掉非 Blob 的脏数据（如字符串、普通对象、空值）
+  const v = obj && obj[key];
+  if (v && typeof v === 'object' && typeof v.size === 'number' && typeof v.type === 'string') return safeObjectURL(v);
+  if (v) obj[key] = null; // 脏数据置空，避免下次写入又把它原样存回去
+  return '';
+}
 const put = (s, v) => new Promise((res, rej) => {
   let clean;
   try { clean = cloneForIDB(v); } catch (e) { return rej(e); }
@@ -1404,7 +1421,7 @@ createApp({
       let acc = (await getAll('accounts'))[0];
       if (!acc) { acc = { id: this.uid10(), username: 'me', nickname: '我', persona: '', gender: '', createdAt: Date.now() }; await put('accounts', acc); }
       this.account = acc;
-      if (acc.avatarBlob) acc.avatarUrl = URL.createObjectURL(acc.avatarBlob);
+      acc.avatarUrl = safeImgUrl(acc, 'avatarBlob');
       this.meForm = { nickname: acc.nickname || '', gender: acc.gender || '', persona: acc.persona || '', avatarBlob: acc.avatarBlob || null, avatarUrl: acc.avatarUrl || '' };
       await this.loadAll();
       this.screen = 'desktop';
@@ -1428,7 +1445,7 @@ createApp({
       }
       const b = new Blob([await file.arrayBuffer()], { type: file.type && file.type.indexOf('image/') === 0 ? file.type : 'image/jpeg' });
       if (tgt.avatarUrl) URL.revokeObjectURL(tgt.avatarUrl);
-      tgt.avatarBlob = b; tgt.avatarUrl = URL.createObjectURL(b); e.target.value = '';
+      tgt.avatarBlob = b; tgt.avatarUrl = safeObjectURL(b); e.target.value = '';
     },
     async onMeFile(e) { await this.pickFile(e, this.meForm); this.saveMe(); },
     async saveMe() {
@@ -1439,7 +1456,7 @@ createApp({
     async _saveMeNow() {
       const f = this.meForm, a = this.account;
       a.nickname = f.nickname.trim() || '我'; a.gender = f.gender.trim(); a.persona = f.persona.trim(); a.avatarBlob = f.avatarBlob;
-      if (f.avatarBlob && !f.avatarUrl) f.avatarUrl = URL.createObjectURL(f.avatarBlob);
+      if (f.avatarBlob && !f.avatarUrl) f.avatarUrl = safeObjectURL(f.avatarBlob);
       a.avatarUrl = f.avatarUrl;
       try { await put('accounts', a); this.autoSaveTip = '✓ 已自动保存 ' + this.fmtTime(Date.now()); }
       catch (e) { this.autoSaveTip = '⚠ 保存失败'; }
@@ -1454,7 +1471,7 @@ createApp({
       await this.refreshDiaryList();
     },
     async loadChars() {
-      try { this.characters = await getAllI('characters', 'accountId', this.accountId); for (const c of this.characters) if (c.avatarBlob) c.avatarUrl = URL.createObjectURL(c.avatarBlob); } catch (e) { this.characters = []; }
+      try { this.characters = await getAllI('characters', 'accountId', this.accountId); for (const c of this.characters) c.avatarUrl = safeImgUrl(c, 'avatarBlob'); } catch (e) { console.warn('loadChars', e); this.characters = []; }
     },
     async loadFriends() {
       try {
@@ -1462,8 +1479,8 @@ createApp({
         for (const f of fs) {
           f.char = this.characters.find(x => x.id === f.charId);
           f.displayName = f.remark || (f.char ? f.char.name : '未知');
-          if (f.char && f.char.avatarBlob) f.avatarUrl = URL.createObjectURL(f.char.avatarBlob);
-          if (f.chatBgBlob && !f.chatBgUrl) f.chatBgUrl = URL.createObjectURL(f.chatBgBlob);
+          if (f.char) f.avatarUrl = safeImgUrl(f.char, 'avatarBlob');
+          f.chatBgUrl = safeImgUrl(f, 'chatBgBlob');
           f.notify = f.notify !== false; f.proactive = !!f.proactive;
           f.proactiveMin = f.proactiveMin || 0; f.proactiveMax = f.proactiveMax || 0; f.proactiveNext = f.proactiveNext || 0;
           const ms = await getAllI('messages', 'friendId', f.id);
@@ -1488,7 +1505,7 @@ createApp({
     async loadSettings() {
       try {
         const s = await get('settings', this.accountId); if (!s) return;
-        if (s.desktopBgBlob) { this.desktopBackgroundBlob = s.desktopBgBlob; this.desktopBackgroundUrl = URL.createObjectURL(s.desktopBgBlob); }
+        if (s.desktopBgBlob) { this.desktopBackgroundBlob = s.desktopBgBlob; this.desktopBackgroundUrl = safeImgUrl(s, 'desktopBgBlob'); }
         this.desktopCss = s.desktopCss || ''; this.cssDraft = this.desktopCss;
         this.desktopJs = s.desktopJs || ''; this.jsDraft = this.desktopJs;
         this.globalNotify = !!s.globalNotify; this.notifyVibrate = s.notifyVibrate !== false; this.notifySound = !!s.notifySound; this.notifyDesktop = !!s.notifyDesktop;
@@ -1723,7 +1740,7 @@ createApp({
       const file = e.target.files[0]; if (!file) return;
       const b = new Blob([await file.arrayBuffer()], { type: file.type });
       if (this.be.bgUrl) URL.revokeObjectURL(this.be.bgUrl);
-      this.be.bgBlob = b; this.be.bgUrl = URL.createObjectURL(b); e.target.value = '';
+      this.be.bgBlob = b; this.be.bgUrl = safeObjectURL(b); e.target.value = '';
     },
     clearBeBg() { if (this.be.bgUrl) URL.revokeObjectURL(this.be.bgUrl); this.be.bgBlob = null; this.be.bgUrl = ''; },
     async saveBe() {
@@ -1935,7 +1952,7 @@ createApp({
       const file = e.target.files[0]; if (!file) return;
       const b = new Blob([await file.arrayBuffer()], { type: file.type });
       if (this.desktopBackgroundUrl) URL.revokeObjectURL(this.desktopBackgroundUrl);
-      this.desktopBackgroundBlob = b; this.desktopBackgroundUrl = URL.createObjectURL(b);
+      this.desktopBackgroundBlob = b; this.desktopBackgroundUrl = safeObjectURL(b);
       e.target.value = ''; await this.saveSettings();
     },
     async clearDesktopBg() {
