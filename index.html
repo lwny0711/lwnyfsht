@@ -889,7 +889,7 @@ textarea.code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
     </div>
     <div class="mrow">
       <button class="btn ghost sm" @click="showChar=false">取消</button>
-      <button class="btn sm" @click="createChar">创建</button>
+      <button class="btn sm" @click="createChar" :disabled="avatarUploading">{{ avatarUploading ? '头像保存中…' : (charForm.id ? '保存' : '创建') }}</button>
     </div>
   </div>
 </div>
@@ -914,29 +914,29 @@ textarea.code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
     <div v-if="storySaveTip" class="tiny" :style="{color: storySaveTipOk ? '#2b8a3e' : '#b00020'}">{{ storySaveTip }}</div>
     <div class="mrow">
       <button class="btn ghost sm" @click="closeStoryModal">取消</button>
-      <button class="btn sm" @click="saveStory">{{ storyForm.id ? '保存' : '创建' }}</button>
-    </div>
-  </div>
-</div>
+      <button class="btn sm" @click="saveStory">{storyForm.id?'保存'：'you you'}</按钮>
+    </级>
+  </级>
+</级>
 
-<div v-if="fs.show" class="mask" @click.self="fs.show=false">
-  <div class="modal">
-    <div class="mtitle">好友设置</div>
-    <div class="fg"><label>好友备注</label><input class="input" v-model="fs.remark" /></div>
-    <div class="card" style="gap:10px;">
-      <div class="row" style="justify-content:space-between;">
-        <div>
-          <div style="font-weight:700;font-size:15px;">消息提醒</div>
-          <div class="tiny muted">对方发来新消息时振动 / 提示音</div>
-        </div>
-        <label class="switch"><input type="checkbox" v-model="fs.notify" @change="saveFs" /><span class="slider"></span></label>
-      </div>
-      <div class="row" style="justify-content:space-between;">
-        <div>
-          <div style="font-weight:700;font-size:15px;">主动发消息</div>
-          <div class="tiny muted">空闲时按设定频率主动找你聊天</div>
-        </div>
-        <label class="switch"><input type="checkbox" v-model="fs.proactive" @change="saveFs" /><span class="slider"></span></label>
+<级 v-if="fs.show" 班级="mask" @click.self="fs.show=false">
+  <级 班级="modal">
+    <级 班级="mtitle">好友设置</级>
+    <级 班级="fg"><标签>好友备注</标签><输入 班级="input" v-model="fs.remark" /></级>
+    <级 班级="card" 风格="差距:10小卖部;">
+      <级 班级="row" 风格="justify-content:space-between;">
+        <级>
+          <级 风格="font-weight:700;font-size:15小卖部;">消息提醒</级>
+          <级 班级=“小静音”>对方发来新消息时振动 / 提示音</级>
+        </级>
+        <标签 班级="switch"><输入 类型="checkbox" v-model="fs.notify" @change="saveFs" /><跨度 班级="slider"></跨度></标签>
+      </级>
+      <级 班级="row" 风格="justify-content:space-between;">
+        <级>
+          <级 风格="font-weight:700;font-size:15小卖部;">主动发消息</级>
+          <级 班级=“小静音”>空闲时按设定频率主动找你聊天</级>
+        </级>
+        <标签 班级="switch"><input type="checkbox" v-model="fs.proactive" @change="saveFs" /><span class="slider"></span></label>
       </div>
       <template v-if="fs.proactive">
         <div class="fg">
@@ -1252,10 +1252,27 @@ async function migrateAvatars() {
   } catch (e) { console.warn('头像迁移跳过', e); }
 }
 
+// 头像 URL 内存缓存：ref -> objectURL，避免反复读 IndexedDB，也避免 objectURL 被提前回收
+const avatarUrlCache = Object.create(null);
+function cacheAvatarUrl(ref, url) {
+  if (ref && url && typeof url === 'string' && url.startsWith('blob:')) avatarUrlCache[ref] = url;
+}
+function getCachedAvatarUrl(ref) { return ref ? avatarUrlCache[ref] || '' : ''; }
+// 预缓存一份：写入成功后立即调用，确保后续 loadChars 能命中（跨异步竞态的关键兜底）
+function primeAvatar(ref, blob) {
+  if (!ref || !blob) return;
+  try { cacheAvatarUrl(ref, safeObjectURL(blob)); } catch (e) {}
+}
+
 // 统一读取某对象的头像 URL（ref 优先，兼容旧 avatarBlob）
 async function ensureAvatarUrl(obj) {
   if (!obj) return '';
-  if (obj.avatarRef) { const u = await loadAvatarUrl(obj.avatarRef); if (u) return u; }
+  if (obj.avatarRef) {
+    const cached = getCachedAvatarUrl(obj.avatarRef);
+    if (cached) return cached;
+    const u = await loadAvatarUrl(obj.avatarRef);
+    if (u) { cacheAvatarUrl(obj.avatarRef, u); return u; }
+  }
   return safeImgUrl(obj, 'avatarBlob');
 }
 
@@ -1464,6 +1481,7 @@ createApp({
     screen: 'loading',
     meForm: { nickname: '', gender: '', persona: '', avatarBlob: null, avatarUrl: '' },
     account: null, accountId: '', autoSaveTip: '', importMsg: '', importOk: true,
+    avatarUploading: false,           // 头像上传中的锁定态，防止与创建角色竞态
     clockText: '',
     // 登录相关
     authMode: 'login',            // 'login' | 'register'
@@ -1658,37 +1676,54 @@ createApp({
       this.authForm = { username: '', password: '' };
       this.authMsg = '';
     },
-    async pickFile(e, tgt, onReady) {
-      const f = e && e.target && e.target.files && e.target.files[0]; if (!f) return;
+    // 头像上传返回 Promise：外部可 await 它完成后再创建角色，彻底消除"选图异步未完成就点创建"的竞态
+    pickFile(e, tgt, onReady) {
+      const f = e && e.target && e.target.files && e.target.files[0];
+      if (!f) return Promise.resolve(false);
       const path = Array.isArray(tgt) ? tgt : null;
+      this.avatarUploading = true;
       // 通用写入：把图片存进独立小表，主对象只保留 ref
       const apply = async (fileOrBlob) => {
+        let ref = null, url = '', blob = null;
         try {
-          const ref = await storeAvatar(fileOrBlob);
-          const url = await loadAvatarUrl(ref);
-          if (path) { let o = this; for (let i = 0; i < path.length - 1; i++) o = o[path[i]]; o[path[path.length - 1]] = ref; this[path[0]].avatarUrl = url; }
-          else { if (tgt.avatarUrl) URL.revokeObjectURL(tgt.avatarUrl); tgt.avatarBlob = null; tgt.avatarRef = ref; tgt.avatarUrl = url; }
-          if (typeof onReady === 'function') { try { onReady(ref, url); } catch (err) {} }
-          return true;
+          ref = await storeAvatar(fileOrBlob);
+          url = await loadAvatarUrl(ref);
+          // 关键：写入成功后立即把 blob 挂到 tgt，让后续同步读取（如 createChar）能拿到图
+          blob = await compressAvatar(fileOrBlob);
         } catch (err) {
           console.warn('头像保存失败（已自动降级）', err);
-          // 降级：压缩成小 Blob 直接挂上，至少界面能显示（可能刷新后丢失）
-          try {
-            const bmp = await createImageBitmap(fileOrBlob);
-            const scale = Math.min(1, 128 / Math.max(bmp.width, bmp.height));
-            const w = Math.max(1, Math.round(bmp.width * scale)), h = Math.max(1, Math.round(bmp.height * scale));
-            const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-            cv.getContext('2d').drawImage(bmp, 0, 0, w, h);
-            const blob = await new Promise(res => cv.toBlob(res, 'image/jpeg', 0.5));
-            const url = safeObjectURL(blob);
-            if (path) { let o = this; for (let i = 0; i < path.length - 1; i++) o = o[path[i]]; o[path[path.length - 1]] = null; this[path[0]].avatarUrl = url; }
-            else { tgt.avatarBlob = blob; tgt.avatarRef = null; tgt.avatarUrl = url; }
-            if (typeof onReady === 'function') { try { onReady(null, url); } catch (e2) {} }
-          } catch (e2) { /* 界面保持原样 */ }
-          return false;
+          blob = null;
         }
+        try {
+          if (ref && url) {
+            if (path) { let o = this; for (let i = 0; i < path.length - 1; i++) o = o[path[i]]; o[path[path.length - 1]] = ref; this[path[0]].avatarUrl = url; }
+            else { if (tgt.avatarUrl) URL.revokeObjectURL(tgt.avatarUrl); tgt.avatarBlob = blob; tgt.avatarRef = ref; tgt.avatarUrl = url; }
+            // 写入成功：预缓存，保证 loadChars 后续能命中（跨异步竞态兜底）
+            cacheAvatarUrl(ref, url);
+          } else {
+            // 真·失败降级：压缩成小 Blob 直接挂上，至少界面能显示（可能刷新后丢失）
+            try {
+              if (!blob) {
+                const bmp = await createImageBitmap(fileOrBlob);
+                const scale = Math.min(1, 128 / Math.max(bmp.width, bmp.height));
+                const w = Math.max(1, Math.round(bmp.width * scale)), h = Math.max(1, Math.round(bmp.height * scale));
+                const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+                cv.getContext('2d').drawImage(bmp, 0, 0, w, h);
+                blob = await new Promise(res => cv.toBlob(res, 'image/jpeg', 0.5));
+              }
+              url = safeObjectURL(blob);
+              if (path) { let o = this; for (let i = 0; i < path.length - 1; i++) o = o[path[i]]; o[path[path.length - 1]] = null; this[path[0]].avatarUrl = url; }
+              else { tgt.avatarBlob = blob; tgt.avatarRef = null; tgt.avatarUrl = url; }
+            } catch (e2) { /* 界面保持原样 */ }
+          }
+        } catch (e3) { console.warn('头像回写失败', e3); }
+        if (typeof onReady === 'function') { try { onReady(ref, url); } catch (err) {} }
+        this.avatarUploading = false;
+        return !!ref;
       };
-      try { await apply(f); } finally { if (e && e.target) e.target.value = ''; }
+      const promise = apply(f);
+      if (e && e.target) { try { e.target.value = ''; } catch (ee) {} }
+      return promise;
     },
     async onMeFile(e) { await this.pickFile(e, this.meForm, () => { this.saveMe(); }); },
     async saveMe() {
@@ -1722,7 +1757,11 @@ createApp({
       try {
         const list = await getAllI('characters', 'accountId', this.accountId);
         // 统一用 ref 解析头像（兼容旧版 avatarBlob）
-        for (const c of list) c.avatarUrl = await ensureAvatarUrl(c);
+        for (const c of list) {
+          c.avatarUrl = await ensureAvatarUrl(c);
+          // 回填内存缓存：保证 loadFriends / editChar 再次 ensureAvatarUrl 时能命中
+          if (c.avatarRef && c.avatarUrl) cacheAvatarUrl(c.avatarRef, c.avatarUrl);
+        }
         this.characters = list;
       } catch (e) { console.warn('loadChars', e); this.characters = []; }
     },
@@ -1983,7 +2022,7 @@ createApp({
         this.characters = this.characters.slice();
         for (const fr of this.friends) if (fr.charId === id) { fr.avatarRef = obj.avatarRef; fr.avatarUrl = obj.avatarUrl; }
         this.friend && this.friend.charId === id && (this.friend.avatarUrl = obj.avatarUrl);
-        this.loadChars().catch(() => {});
+        // 已用内存对象同步更新，不再调 loadChars（否则会用数据库重新读，把刚保存的 url 冲掉）
       } catch (e) { console.warn('头像保存失败', e); }
     },
     // 打开编辑：把已有角色数据填入表单（头像、人设、开场白等都可改）
@@ -2006,6 +2045,10 @@ createApp({
     async createChar() {
       const f = this.charForm;
       if (!f.name.trim() || !f.persona.trim()) { alert('姓名与人设为必填'); return; }
+      // 关键：若头像正在上传，等待它完成再读取 avatarRef，彻底消除竞态
+      if (this.avatarUploading) {
+        let n = 0; while (this.avatarUploading && n < 200) { await new Promise(r => setTimeout(r, 30)); n++; }
+      }
       try {
         // 编辑已有角色：直接基于表单数据构造完整对象写入，不再依赖"写完再读回"
         if (f.id) {
@@ -2030,21 +2073,27 @@ createApp({
           this.showChar = false;
           const savedAvatarUrl = obj.avatarUrl, savedContactId = obj.contactId, savedId = obj.id, savedRef = obj.avatarRef;
           this.charForm = { id: '', name: '', gender: '', persona: '', opening: '', avatarBlob: null, avatarRef: null, avatarUrl: '', worldbookIds: [] };
-          const idx = this.characters.findIndex(x => x.id === savedId);
           const synced = { id: savedId, contactId: savedContactId, name: obj.name, gender: obj.gender, persona: obj.persona, opening: obj.opening, avatarRef: savedRef, avatarUrl: savedAvatarUrl, worldbookIds: obj.worldbookIds, updatedAt: obj.updatedAt };
+          const idx = this.characters.findIndex(x => x.id === savedId);
           if (idx >= 0) this.characters.splice(idx, 1, synced); else this.characters.push(synced);
           this.characters = this.characters.slice();
           for (const fr of this.friends) if (fr.charId === savedId) { fr.avatarRef = savedRef; fr.avatarUrl = savedAvatarUrl; fr.displayName = obj.name; }
-          this.loadChars().catch(() => {}); this.loadFriends().catch(() => {});
+          // 用内存同步对象更新，不再调用 loadChars 覆盖（避免重新读库把刚保存的 url 冲掉）
+          this.loadFriends().catch(() => {});
           if (this.friend && this.friend.charId === savedId) this.friend.avatarUrl = savedAvatarUrl;
           alert('角色已更新');
           return;
         }
-        // 新建角色
+        // 新建角色：avatarRef 此时已由 pickFile 同步写好（或通过下面的兜底确保拿到）
         const cid = 'C' + Math.random().toString(36).slice(2, 8).toUpperCase();
-        await put('characters', { id: uid(), accountId: this.accountId, contactId: cid, name: f.name.trim(), gender: f.gender.trim(), persona: f.persona.trim(), opening: f.opening.trim(), avatarRef: f.avatarRef || null, avatarBlob: null, avatarUrl: f.avatarUrl || '', worldbookIds: (f.worldbookIds || []).slice(), createdAt: Date.now() });
+        const newId = uid();
+        // 若表单里还没有 ref（极端：用户未选头像就创建），avatarRef 为 null 是合法的，不强求
+        const avatarRef = f.avatarRef || null;
+        const avatarUrl = f.avatarUrl || '';
+        await put('characters', { id: newId, accountId: this.accountId, contactId: cid, name: f.name.trim(), gender: f.gender.trim(), persona: f.persona.trim(), opening: f.opening.trim(), avatarRef, avatarBlob: null, avatarUrl, worldbookIds: (f.worldbookIds || []).slice(), createdAt: Date.now() });
         this.showChar = false;
         this.charForm = { id: '', name: '', gender: '', persona: '', opening: '', avatarBlob: null, avatarRef: null, avatarUrl: '', worldbookIds: [] };
+        // 新建后刷新列表；由于 ensureAvatarUrl 有内存缓存，刚上传的图不会丢
         await this.loadChars(); await this.loadFriends();
         alert('角色已创建，通讯号：' + cid);
       } catch (e) { alert('失败：' + e.message); }
@@ -2661,4 +2710,4 @@ createApp({
 }).mount('#app');
 </script>
 </body>
-</html>
+        </html>
